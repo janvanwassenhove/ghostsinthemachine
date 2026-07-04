@@ -1435,8 +1435,10 @@ export class GameScene extends Phaser.Scene {
               .on('pointerout', () => { bg.setFillStyle(COLORS.panel); this.tooltip.setVisible(false); })
               .on('pointerdown', () => { if (afford) { this.buildDef = def.id; this.buildRot = 0; this.tooltip.setVisible(false); this.rebuildPanel(); } });
           };
+          let anyLocked = false;
           for (const cat of ROOM_CATEGORIES) {
-            const defs = ROOMS.filter((d) => d.category === cat.id);
+            const defs = ROOMS.filter((d) => d.category === cat.id && this.sim.roomAvailable(d.id));
+            anyLocked = anyLocked || ROOMS.some((d) => d.category === cat.id && !this.sim.roomAvailable(d.id));
             if (defs.length === 0) continue;
             y += 4;
             line(cat.label.toUpperCase(), COLORS.ghostGreenCss, '11px');
@@ -1447,6 +1449,10 @@ export class GameScene extends Phaser.Scene {
               tile(def, pad + col * (tileW + pad), gridTop + row * (tileH + pad));
             });
             y = gridTop + Math.ceil(defs.length / cols) * (tileH + pad) + pad;
+          }
+          if (anyLocked) {
+            y += 2;
+            line('🔒 More rooms unlock as you take on later contracts.', '#8a97a8', '11px');
           }
         }
         break;

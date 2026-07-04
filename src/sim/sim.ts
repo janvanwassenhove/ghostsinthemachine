@@ -205,16 +205,30 @@ export class Sim {
     return def.outdoor ? (x, y) => !inRects(b, x, y) : (x, y) => inRects(b, x, y);
   }
 
+  /** Whether a room type is unlocked in the current contract (all in sandbox). */
+  roomAvailable(defId: string): boolean {
+    const a = this.state.scenario.availableRooms;
+    return !a || a.includes(defId);
+  }
+
+  /** Whether a staff role is unlocked in the current contract (all in sandbox). */
+  roleAvailable(roleId: string): boolean {
+    const a = this.state.scenario.availableRoles;
+    return !a || a.includes(roleId);
+  }
+
   /** Validate a placement without building it — used by the placement preview. */
   canPlace(defId: string, x: number, y: number, w: number, h: number, preferSide = 0): string | null {
     const def = ROOM_BY_ID[defId];
     if (!def) return 'Unknown room';
+    if (!this.roomAvailable(defId)) return 'Not unlocked in this contract yet';
     return validatePlacement(this.state.rooms, def, x, y, w, h, preferSide, this.zoneFor(def), this.wall(), this.doorFacing(def));
   }
 
   buildRoom(defId: string, x: number, y: number, w: number, h: number, preferSide = 0): string | null {
     const def = ROOM_BY_ID[defId];
     if (!def) return 'Unknown room';
+    if (!this.roomAvailable(defId)) return 'Not unlocked in this contract yet';
     if (this.state.money < def.cost) return 'Not enough money';
     const err = validatePlacement(this.state.rooms, def, x, y, w, h, preferSide, this.zoneFor(def), this.wall(), this.doorFacing(def));
     if (err) return err;
@@ -444,7 +458,7 @@ export class Sim {
   // ------------------------------------------------------------------ spawning
 
   private refreshCandidates(): void {
-    const roles = Object.keys(ROLE_BY_ID);
+    const roles = this.state.scenario.availableRoles ?? Object.keys(ROLE_BY_ID);
     this.state.candidates = [];
     for (let i = 0; i < BAL.candidateCount; i++) {
       // The pool always leads with the two generalists (Bug Whisperer covers

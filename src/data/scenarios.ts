@@ -13,6 +13,8 @@ export const SCENARIOS: ScenarioDef[] = [
     mutationChance: 0,
     win: [{ type: 'resolve', value: 12, label: 'Resolve 12 incidents' }],
     failMoney: -300, failTrust: 5, failEnabled: true,
+    unlockRooms: ['triage', 'debug_chapel', 'patch_unit', 'coffee_reactor'],
+    unlockRoles: ['bug_whisperer', 'devops_janitor', 'qa_revenant'],
     building: [{ x: 6, y: 4, w: 12, h: 7 }],
     intro: [
       'It is your first day.\nThe basement smells of dust, ozone, and mild regret.',
@@ -36,6 +38,8 @@ export const SCENARIOS: ScenarioDef[] = [
       { type: 'trust', value: 40, label: 'Client trust ≥ 40' },
     ],
     failMoney: -300, failTrust: 10, failEnabled: true,
+    unlockRooms: ['merge_arena', 'printer_booth', 'compliance_bunker'],
+    unlockRoles: ['printer_exorcist', 'compliance_druid'],
     building: [{ x: 5, y: 3, w: 8, h: 9 }, { x: 13, y: 3, w: 6, h: 5 }],
     intro: [
       'The client has one printer.\nThe printer has one thousand opinions.',
@@ -58,6 +62,8 @@ export const SCENARIOS: ScenarioDef[] = [
       { type: 'trust', value: 45, label: 'Client trust ≥ 45' },
     ],
     failMoney: -300, failTrust: 10, failEnabled: true,
+    unlockRooms: ['cloud_detox', 'server_seance', 'release_ritual', 'bean_plantation'],
+    unlockRoles: ['cloud_shaman', 'database_medium', 'legacy_priest', 'release_bard', 'groundskeeper'],
     building: [{ x: 5, y: 5, w: 10, h: 7 }, { x: 16, y: 3, w: 5, h: 5 }],
     intro: [
       'The plan was simple: lift-and-shift to the cloud.\nThe lift worked. The shift shifted something else.',
@@ -80,6 +86,8 @@ export const SCENARIOS: ScenarioDef[] = [
       { type: 'resolve', value: 25, label: 'Resolve 25 incidents' },
     ],
     failMoney: -300, failTrust: 10, failEnabled: true,
+    unlockRooms: ['legacy_crypt', 'db_vault', 'refactor_dojo', 'oak_grove'],
+    unlockRoles: ['refactoring_monk'],
     building: [{ x: 5, y: 3, w: 15, h: 9 }],
     intro: [
       'The system was declared end-of-life in 1999.\nIt sent a strongly-worded memo disagreeing.',
@@ -99,6 +107,8 @@ export const SCENARIOS: ScenarioDef[] = [
     mutationChance: 0.002,
     win: [{ type: 'auditsPassed', value: 3, label: 'Pass 3 audits' }],
     failMoney: -300, failTrust: 10, failEnabled: true,
+    unlockRooms: ['war_room', 'panic_cell', 'observatory', 'monitoring_shrine'],
+    unlockRoles: ['security_goblin', 'incident_commander', 'scrum_necromancer', 'architect_oracle'],
     building: [{ x: 8, y: 2, w: 7, h: 11 }, { x: 4, y: 6, w: 16, h: 4 }],
     intro: [
       'A letter arrives on grey paper.\nThe Bureau of Digital Sanctity requests the pleasure of your compliance.',
@@ -121,6 +131,8 @@ export const SCENARIOS: ScenarioDef[] = [
       { type: 'survive', value: 4, label: 'Survive 4 days' },
     ],
     failMoney: -300, failTrust: 10, failEnabled: true,
+    unlockRooms: ['ai_sanitarium', 'backup_lab', 'server_farm'],
+    unlockRoles: ['ai_prompt_therapist', 'server_rancher'],
     building: [{ x: 4, y: 3, w: 8, h: 9 }, { x: 14, y: 3, w: 8, h: 9 }],
     intro: [
       'You gave the agent read-only access.\nIt read that as a suggestion.',
@@ -144,6 +156,8 @@ export const SCENARIOS: ScenarioDef[] = [
       { type: 'trust', value: 55, label: 'Client trust ≥ 55' },
     ],
     failMoney: -300, failTrust: 10, failEnabled: true,
+    unlockRooms: [],
+    unlockRoles: [],
     building: [{ x: 4, y: 2, w: 17, h: 4 }, { x: 4, y: 6, w: 5, h: 7 }, { x: 16, y: 6, w: 5, h: 7 }],
     intro: [
       'It is 2 AM. Every pager you own is singing a different song.',
@@ -153,6 +167,19 @@ export const SCENARIOS: ScenarioDef[] = [
     ],
   },
 ];
+
+// Resolve each contract's cumulative availability: rooms/roles unlock in
+// campaign order and stay unlocked, so the player learns them a few at a time.
+{
+  const rooms: string[] = [];
+  const roles: string[] = [];
+  for (const sc of SCENARIOS) {
+    for (const r of sc.unlockRooms ?? []) if (!rooms.includes(r)) rooms.push(r);
+    for (const r of sc.unlockRoles ?? []) if (!roles.includes(r)) roles.push(r);
+    sc.availableRooms = [...rooms];
+    sc.availableRoles = [...roles];
+  }
+}
 
 export const SCENARIO_BY_ID: Record<string, ScenarioDef> = Object.fromEntries(
   SCENARIOS.map((s) => [s.id, s]),

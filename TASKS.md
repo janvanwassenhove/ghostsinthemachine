@@ -125,7 +125,11 @@ command output (`npm run build`, `npm test`) and live browser playtests.
 - [x] Categorised build menu (Core / Treatment / Support / The Grounds) with placeholder chips
 - [x] Scrollable side panel (mouse wheel) so long hire/build lists stay reachable
 - [x] Coffee-chain clarity: HUD stat tooltips, "no reactor!" alert, escalating hints
-- [x] Unit tests: room rotation, footprint zones, wall collision, bean growth, arrival queue
+- [x] Progressive unlocks: rooms + staff roles unlock cumulatively across the 7 contracts (sandbox = all)
+- [x] Intro cutscene showcases the contract's newly-unlocked rooms & staff in the in-game icon style
+- [x] Title logo cleaned up (inner whites removed via scripts/logo-transparent.ps1)
+- [x] Custom top-down art for the three Grounds buildings (generated in the ChatGPT art pipeline)
+- [x] Unit tests: room rotation, footprint zones, wall collision, bean growth, arrival queue, unlock gating
 
 ## Deferred (intentionally out of scope)
 - [ ] Manual queue re-prioritisation (drag a ticket up a queue)

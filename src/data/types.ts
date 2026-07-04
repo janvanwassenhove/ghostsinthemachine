@@ -128,6 +128,15 @@ export interface ScenarioDef {
   failTrust: number; // fail if trust drops below
   failEnabled: boolean;
   sandbox?: boolean;
+  /** Rooms/roles newly introduced at this contract (campaign order). */
+  unlockRooms?: string[];
+  unlockRoles?: string[];
+  /**
+   * Cumulative availability, resolved from the unlock lists in scenarios.ts.
+   * Undefined means "everything is available" (e.g. sandbox).
+   */
+  availableRooms?: string[];
+  availableRoles?: string[];
   /**
    * Building footprint: one or more rectangles of buildable indoor floor.
    * Everything else inside the map is "the grounds" (garden), where only

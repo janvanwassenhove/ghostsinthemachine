@@ -17,7 +17,8 @@ Built with **TypeScript + Vite + Phaser**. Fully static: no backend, no server r
 - **The Grounds** — an outdoor garden where you plant a **Java Bean Plantation** (it grows coffee beans; Java, obviously), raise an **Oak of Undefined Behaviour** (Java's original name; steadies morale), and run a literal **Server Farm**, each tended by dedicated grounds staff
 - Economy, client-trust tiers, technical debt (with **The Great Refactoring** at 100), derived system stability, and a beans → Coffee Reactor → energy supply chain with escalating alerts
 - **6 disasters** (Incident Storm, The Update, Vending Machine Uprising, …) and audits by the Bureau of Digital Sanctity, who bring clipboards that audit you back
-- **7-scenario campaign** with per-contract **absurd cold-open cutscenes**, sequential unlocks, and star ratings — plus a configurable **sandbox mode**
+- **7-scenario campaign** with per-contract **absurd cold-open cutscenes** that showcase the rooms & staff you unlock — everything unlocks **gradually across the campaign** so you learn a few at a time (sandbox gives you the lot)
+- Sequential contract unlocks, star ratings, and a configurable **sandbox mode**
 - **WebAudio sound effects** (synthesised at runtime, never downloaded) and contextual **thought bubbles** — watch staff and ghosts hold genuinely unhinged IT conversations
 - Categorised build menu, scrolling panels, contextual hint banner, save/load via LocalStorage (autosave, manual save, corrupt-save quarantine), and victory/failure screens
 

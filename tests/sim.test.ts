@@ -9,6 +9,11 @@ import { buildingBlocker, buildingEntrances, doorOutside, inRects } from '../src
 
 const basement = SCENARIOS[0];
 
+/** Lift campaign room/role unlock gating for tests that exercise other behaviour. */
+function unlockAll(sim: Sim): void {
+  sim.state.scenario = { ...sim.state.scenario, availableRooms: undefined, availableRoles: undefined };
+}
+
 describe('data integrity', () => {
   it('has 22 rooms, 17 roles, 24 incidents, 7 scenarios', () => {
     expect(ROOMS.length).toBe(22);
@@ -135,6 +140,50 @@ describe('hiring pool', () => {
     expect(sim.state.candidates[0].role).toBe('bug_whisperer');
     expect(sim.state.candidates[1].role).toBe('devops_janitor');
   });
+
+  it('only offers roles unlocked so far in the campaign', () => {
+    const sim = new Sim(basement, 123);
+    const allowed = new Set(basement.availableRoles);
+    for (const c of sim.state.candidates) expect(allowed.has(c.role)).toBe(true);
+  });
+});
+
+describe('campaign progression (unlocks)', () => {
+  it('unlocks rooms and roles cumulatively across the seven contracts', () => {
+    // Each contract keeps everything earlier ones unlocked, and the final one
+    // has the full set.
+    for (let i = 1; i < SCENARIOS.length; i++) {
+      const prev = new Set(SCENARIOS[i - 1].availableRooms);
+      for (const r of prev) expect(SCENARIOS[i].availableRooms).toContain(r);
+    }
+    const last = SCENARIOS[SCENARIOS.length - 1];
+    expect(last.availableRooms!.length).toBe(ROOMS.length);
+    expect(last.availableRoles!.length).toBe(ROLES.length);
+    // The two generalist roles are available from the very first contract.
+    expect(SCENARIOS[0].availableRoles).toContain('bug_whisperer');
+    expect(SCENARIOS[0].availableRoles).toContain('devops_janitor');
+  });
+
+  it('blocks building a room that is not unlocked yet', () => {
+    const sim = new Sim(basement, 1); // basement has no AI Sanitarium
+    expect(sim.roomAvailable('ai_sanitarium')).toBe(false);
+    expect(sim.buildRoom('ai_sanitarium', 8, 6, 3, 3)).toMatch(/unlock/i);
+    // …but a first-contract room builds fine.
+    expect(sim.roomAvailable('triage')).toBe(true);
+    expect(sim.buildRoom('triage', 7, 5, 3, 3)).toBeNull();
+  });
+
+  it('every contract can build all the rooms its incidents route to', () => {
+    for (const sc of SCENARIOS) {
+      const avail = new Set(sc.availableRooms);
+      const pool = sc.incidentPool === 'all' ? INCIDENTS.map((i) => i.id) : sc.incidentPool;
+      for (const incId of pool) {
+        for (const roomId of ['triage', ...INCIDENT_BY_ID[incId].rooms]) {
+          expect(avail.has(roomId), `${sc.id} needs ${roomId} for ${incId}`).toBe(true);
+        }
+      }
+    }
+  });
 });
 
 describe('room rotation', () => {
@@ -166,6 +215,7 @@ describe('building footprint & the grounds', () => {
   it('rejects indoor rooms outside the building and outdoor rooms inside it', () => {
     const sim = new Sim(basement, 11);
     sim.state.money += 10000;
+    unlockAll(sim);
     const b = basement.building![0]; // { x:1, y:3, w:13, h:9 }
     // Indoor room fully inside the footprint: OK.
     expect(sim.buildRoom('triage', b.x + 1, b.y + 1, 3, 3)).toBeNull();
@@ -181,6 +231,7 @@ describe('building footprint & the grounds', () => {
   it('a Java Bean Plantation grows beans over time', () => {
     const sim = new Sim(basement, 5);
     sim.state.money += 10000;
+    unlockAll(sim);
     const b = basement.building![0];
     const gy = b.y + b.h + 1;
     expect(sim.buildRoom('bean_plantation', 3, gy, 2, 2)).toBeNull();
@@ -254,6 +305,7 @@ describe('building footprint & the grounds', () => {
 describe('staff assignment rules', () => {
   it('rejects incompatible roles', () => {
     const sim = new Sim(basement, 42);
+    unlockAll(sim);
     sim.buildRoom('printer_booth', 7, 5, 2, 3);
     // find a candidate that is NOT a printer exorcist
     const idx = sim.state.candidates.findIndex((c) => c.role !== 'printer_exorcist');

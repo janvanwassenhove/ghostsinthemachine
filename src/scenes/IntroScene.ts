@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, FONT_FAMILY, GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { ROOM_BY_ID } from '../data/rooms';
+import { ROLE_BY_ID } from '../data/roles';
 import type { ScenarioDef } from '../data/types';
 import { button } from '../ui/widgets';
 
@@ -50,12 +52,16 @@ export class IntroScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // The animated story line.
-    this.textObj = this.add.text(cx, GAME_HEIGHT / 2, '', {
+    this.textObj = this.add.text(cx, 300, '', {
       fontFamily: FONT_FAMILY, fontSize: '22px', color: COLORS.textPrimary,
       align: 'center', wordWrap: { width: 860 }, lineSpacing: 8,
     }).setOrigin(0.5);
 
-    this.captionObj = this.add.text(cx, GAME_HEIGHT - 132, '', {
+    // What this contract teaches you: the newly-unlocked rooms & staff, drawn
+    // in the same icon style as the in-game build/hire panels.
+    this.showUnlocks();
+
+    this.captionObj = this.add.text(cx, GAME_HEIGHT - 100, '', {
       fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textDim,
     }).setOrigin(0.5);
 
@@ -90,6 +96,76 @@ export class IntroScene extends Phaser.Scene {
       targets: this.textObj, alpha: 0, scale: 0.98, duration: 220, ease: 'Quad.easeIn',
       onComplete: () => { this.index++; this.advancing = false; this.showPanel(); },
     });
+  }
+
+  /** Showcase the rooms & staff this contract unlocks, in the in-game icon style. */
+  private showUnlocks(): void {
+    const cx = GAME_WIDTH / 2;
+    const rooms = (this.scenario.unlockRooms ?? []).filter((id) => ROOM_BY_ID[id]);
+    const roles = (this.scenario.unlockRoles ?? []).filter((id) => ROLE_BY_ID[id]);
+
+    if (rooms.length === 0 && roles.length === 0) {
+      this.add.text(cx, 470, '✦ Every room and every hire is now at your disposal. ✦', {
+        fontFamily: FONT_FAMILY, fontSize: '15px', color: COLORS.ghostGreenCss,
+      }).setOrigin(0.5);
+      return;
+    }
+
+    this.add.text(cx, 400, 'NEW THIS CONTRACT — rooms & staff you can now use', {
+      fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.ghostGreenCss, fontStyle: 'bold',
+    }).setOrigin(0.5);
+
+    const roomSpacing = 92;
+    const roomStart = cx - ((rooms.length - 1) * roomSpacing) / 2;
+    rooms.forEach((id, i) => this.roomChip(roomStart + i * roomSpacing, 452, id));
+
+    const roleSpacing = 92;
+    const roleStart = cx - ((roles.length - 1) * roleSpacing) / 2;
+    roles.forEach((id, i) => this.roleChip(roleStart + i * roleSpacing, 552, id));
+  }
+
+  /** A build-menu-style room tile: panel chip + art (or colour swatch) + short name. */
+  private roomChip(x: number, y: number, id: string): void {
+    const def = ROOM_BY_ID[id];
+    const s = 52;
+    const g = this.add.graphics();
+    g.fillStyle(COLORS.panel, 0.92);
+    g.lineStyle(1, COLORS.ghostGreen, 0.8);
+    g.fillRoundedRect(x - s / 2, y - s / 2, s, s, 6);
+    g.strokeRoundedRect(x - s / 2, y - s / 2, s, s, 6);
+    if (this.textures.exists(`room_${id}`)) {
+      this.add.image(x, y, `room_${id}`).setDisplaySize(s - 10, s - 10);
+    } else {
+      this.add.rectangle(x, y, s - 16, s - 20, def.color, 0.9);
+      this.add.text(x, y, def.short, {
+        fontFamily: FONT_FAMILY, fontSize: '8px', color: '#0b0f16', fontStyle: 'bold',
+      }).setOrigin(0.5);
+    }
+    this.add.text(x, y + s / 2 + 8, def.short, {
+      fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textDim,
+    }).setOrigin(0.5);
+  }
+
+  /** A hire-panel-style staff token: avatar (or initials disc) + role name. */
+  private roleChip(x: number, y: number, id: string): void {
+    const role = ROLE_BY_ID[id];
+    const r = 24;
+    if (this.textures.exists(`staff_${id}`)) {
+      this.add.image(x, y, `staff_${id}`).setDisplaySize(r * 2, r * 2);
+    } else {
+      const g = this.add.graphics();
+      g.fillStyle(role.color, 1);
+      g.lineStyle(2, COLORS.ghostGreen, 0.6);
+      g.fillCircle(x, y, r);
+      g.strokeCircle(x, y, r);
+      this.add.text(x, y, role.initials, {
+        fontFamily: FONT_FAMILY, fontSize: '13px', color: '#0b0f16', fontStyle: 'bold',
+      }).setOrigin(0.5);
+    }
+    this.add.text(x, y + r + 8, role.name, {
+      fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textDim,
+      align: 'center', wordWrap: { width: 88 },
+    }).setOrigin(0.5, 0);
   }
 
   private startGame(): void {
