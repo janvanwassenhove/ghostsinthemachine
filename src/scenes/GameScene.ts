@@ -10,7 +10,7 @@ import type { RoomDef, ScenarioDef } from '../data/types';
 import { ROOM_CATEGORIES } from '../data/types';
 import { GRID_H, GRID_W, ENTRANCE, buildingEntrances, doorOutside, doorSideOf, inRects, roomAt } from '../sim/grid';
 import { Sim } from '../sim/sim';
-import type { IncidentState, RoomState, StaffState } from '../sim/state';
+import type { ActiveDisaster, IncidentState, RoomState, StaffState } from '../sim/state';
 import { loadGame, loadSettings, recordResult, saveGame, clearSaves } from '../sim/save';
 import { Sound } from '../sound';
 import { Toasts, button, label } from '../ui/widgets';
@@ -91,6 +91,8 @@ export class GameScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private chatterText!: Phaser.GameObjects.Text;
   private disasterChips!: Phaser.GameObjects.Container;
+  private dangerVignette!: Phaser.GameObjects.Graphics;
+  private knownDisasters = new WeakSet<ActiveDisaster>();
   private menuOverlay: Phaser.GameObjects.Container | null = null;
   private lastDay = 1;
   private chatterTimer = 0;
@@ -137,6 +139,9 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.lastDay = this.sim.state.day;
+    // Any disasters already active in a loaded game are "known" (don't re-alert).
+    this.knownDisasters = new WeakSet<ActiveDisaster>();
+    for (const d of this.sim.state.disasters) this.knownDisasters.add(d);
 
     // Everything in the play area lives in `world`, which we scale/pan for zoom.
     this.zoom = 1;
@@ -196,6 +201,8 @@ export class GameScene extends Phaser.Scene {
       .on('pointerover', () => this.showObjectives(true))
       .on('pointerout', () => this.showObjectives(false));
     this.disasterChips = this.add.container(GX + 6, GY + 40).setDepth(25);
+    // Pulsing danger border around the play area while a disaster is active.
+    this.dangerVignette = this.add.graphics().setDepth(26).setVisible(false);
     // Contextual "what to do now" banner across the top of the play area.
     this.hintText = this.add
       .text(GX + (GRID_W * TILE) / 2 + 60, GY + 10, '', {
@@ -735,7 +742,7 @@ export class GameScene extends Phaser.Scene {
     this.world.sort('depth'); // keep floor < rooms < ghosts < staff < preview
     this.updateHud();
     this.updateBuildPreview();
-    this.updateDisasterChips();
+    this.updateDisasters();
     this.updateHint();
     this.updateChatter(dt);
 
@@ -1285,18 +1292,96 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Plain-language summaries of each disaster effect, for the alerts + chips. */
+  private static DISASTER_INFO: Record<string, { short: string; what: string }> = {
+    spawnSurge: { short: 'ticket surge', what: 'Incidents are flooding in far faster than normal.' },
+    noWork: { short: 'work stopped', what: 'Your staff have downed tools — nothing is being processed.' },
+    roomPossessed: { short: 'room possessed', what: 'A room has been possessed and cannot be used (its border flashes red).' },
+    pathChaos: { short: 'slow corridors', what: 'The corridors are scrambled — everyone moves in slow motion.' },
+    freeze: { short: 'office frozen', what: 'The whole office is frozen mid-update. Work is paused.' },
+    moraleDrain: { short: 'morale draining', what: 'Staff morale is draining fast — keep an eye on resignations.' },
+  };
+
+  private updateDisasters(): void {
+    const active = this.sim.state.disasters;
+    // Announce (and shake for) any disaster that just started.
+    for (const d of active) {
+      if (!this.knownDisasters.has(d)) {
+        this.knownDisasters.add(d);
+        this.announceDisaster(d);
+      }
+    }
+    this.updateDangerVignette(active);
+    this.updateDisasterChips();
+  }
+
   private updateDisasterChips(): void {
     this.disasterChips.removeAll(true);
     this.sim.state.disasters.forEach((d, i) => {
       const def = DISASTER_BY_ID[d.def];
       const secs = Math.ceil(d.remaining);
+      const info = GameScene.DISASTER_INFO[def.effect];
       const lbl = def.fixCost > 0
-        ? `⚡ ${def.name} · ${secs}s · click: pay $${def.fixCost}`
-        : `⚡ ${def.name} · ${secs}s · passes on its own`;
-      const b = button(this, 175, i * 32, lbl, () => {
+        ? `⚡ ${def.name} — ${info.short} · PAY $${def.fixCost} (${secs}s)`
+        : `⚡ ${def.name} — ${info.short} · ends in ${secs}s`;
+      const b = button(this, 185, i * 32, lbl, () => {
         if (def.fixCost > 0) this.action(this.sim.endDisaster(i));
-      }, { w: 350, h: 28, fontSize: '12px', color: '#ffb347' });
+      }, { w: 370, h: 28, fontSize: '12px', color: '#ffcf7a', enabled: def.fixCost > 0 });
       this.disasterChips.add(b);
+    });
+  }
+
+  /** Redraw the pulsing danger border around the play area. */
+  private updateDangerVignette(active: ActiveDisaster[]): void {
+    const g = this.dangerVignette;
+    g.clear();
+    if (active.length === 0) { g.setVisible(false); return; }
+    g.setVisible(true);
+    const def = DISASTER_BY_ID[active[active.length - 1].def];
+    const col = def.effect === 'roomPossessed' ? 0x5a9bff
+      : def.effect === 'moraleDrain' ? 0xb060ff
+      : def.effect === 'freeze' ? 0x6ad0ff
+      : 0xff5a3c;
+    const pulse = 0.22 + 0.28 * (0.5 + 0.5 * Math.sin(this.time.now / 320));
+    const x = GX, y = GY, w = GRID_W * TILE, h = GRID_H * TILE;
+    for (let k = 0; k < 5; k++) {
+      g.lineStyle(3, col, pulse * (1 - k * 0.18));
+      g.strokeRect(x + k * 3, y + k * 3, w - k * 6, h - k * 6);
+    }
+  }
+
+  /** A prominent, auto-fading banner explaining a new disaster and what to do. */
+  private announceDisaster(d: ActiveDisaster): void {
+    const def = DISASTER_BY_ID[d.def];
+    const info = GameScene.DISASTER_INFO[def.effect];
+    const cx = GX + (GRID_W * TILE) / 2;
+    const cy = GY + (GRID_H * TILE) * 0.34;
+    const doThis = def.fixCost > 0
+      ? `Click the ⚡ alert (top-left) to pay $${def.fixCost} and end it now — or ride it out (~${def.duration}s).`
+      : `Nothing to buy your way out of — ride it out (~${def.duration}s).`;
+    const w = 560;
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1a0d08, 0.92);
+    panel.lineStyle(2, 0xff5a3c, 0.9);
+    panel.fillRoundedRect(-w / 2, -70, w, 140, 10);
+    panel.strokeRoundedRect(-w / 2, -70, w, 140, 10);
+    const title = this.add.text(0, -50, `⚡  ${def.name.toUpperCase()}`, {
+      fontFamily: FONT_FAMILY, fontSize: '22px', color: '#ff8a5c', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const what = this.add.text(0, -12, info.what, {
+      fontFamily: FONT_FAMILY, fontSize: '15px', color: COLORS.textPrimary,
+      align: 'center', wordWrap: { width: w - 40 },
+    }).setOrigin(0.5);
+    const act = this.add.text(0, 38, doThis, {
+      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ffcf7a',
+      align: 'center', wordWrap: { width: w - 40 },
+    }).setOrigin(0.5);
+    const c = this.add.container(cx, cy, [panel, title, what, act]).setDepth(29).setAlpha(0);
+    this.cameras.main.shake(240, 0.003); // Sound.disaster() already fires via the event drain
+    this.tweens.add({ targets: c, alpha: 1, y: cy - 6, duration: 260, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: c, alpha: 0, delay: 4200, duration: 700, ease: 'Quad.easeIn',
+      onComplete: () => c.destroy(),
     });
   }
 
@@ -1310,7 +1395,8 @@ export class GameScene extends Phaser.Scene {
       msg = '▸ Build a Ticket Triage Desk (Build tab) — tickets can\'t be handled without it.';
     } else {
       const broken = s.rooms.find((r) => r.broken);
-      const disaster = s.disasters.find((d) => DISASTER_BY_ID[d.def].fixCost > 0);
+      const payable = s.disasters.find((d) => DISASTER_BY_ID[d.def].fixCost > 0);
+      const anyDisaster = s.disasters[0];
       const noRoom = s.incidents.find((i) => i.phase === 'stuck' && !s.rooms.some((r) => r.def === i.chain[0]));
       const unstaffed = s.rooms.find(
         (r) => ROOM_BY_ID[r.def].service && r.queue.length > 0 && this.sim.presentStaff(r).length === 0,
@@ -1318,7 +1404,8 @@ export class GameScene extends Phaser.Scene {
       const noReactor = s.staff.length > 0 && !s.rooms.some((r) => r.def === 'coffee_reactor');
       const tired = s.staff.some((st) => st.energy < 25);
       if (broken) msg = `▸ ${ROOM_BY_ID[broken.def].name} broke down — click it and press Repair.`;
-      else if (disaster) msg = '▸ A disaster is active — click the ⚡ chip to pay it off, or wait it out.';
+      else if (payable) msg = `⚡ ${DISASTER_BY_ID[payable.def].name} — click the ⚡ alert (top-left) to pay $${DISASTER_BY_ID[payable.def].fixCost} and end it, or wait it out.`;
+      else if (anyDisaster) msg = `⚡ ${DISASTER_BY_ID[anyDisaster.def].name} in progress — it passes on its own; keep the office running.`;
       else if (noRoom) msg = `▸ A ${INCIDENT_BY_ID[noRoom.def].name} has nowhere to go — build a ${ROOM_BY_ID[noRoom.chain[0]]?.name ?? 'matching room'}.`;
       else if (unstaffed) msg = `▸ ${ROOM_BY_ID[unstaffed.def].name} has a queue but no staff — click it and assign someone.`;
       else if (noReactor) msg = '⚠ No Coffee Reactor — build one so staff can recharge on breaks, or they burn out.';
