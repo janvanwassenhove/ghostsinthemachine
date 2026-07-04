@@ -391,16 +391,22 @@ export class GameScene extends Phaser.Scene {
     // --- Walls
     const walls = this.add.graphics().setDepth(1.5);
     if (building) {
-      // A foundation skirting around each building rectangle (thin, so ghosts
-      // crossing a doorway don't look like they clip through a tall wall).
+      // A foundation skirting around the OUTER edge of the footprint only, so
+      // adjacent wings read as one connected building (no fake wall across the
+      // junction where two rectangles meet). Drawn per tile-edge on the union
+      // boundary, thin so doorways don't look like tall walls.
       walls.fillStyle(wallCol, 0.9);
       const S = 3;
-      for (const r of building) {
-        const rx = GX + r.x * TILE, ry = GY + r.y * TILE, rw = r.w * TILE, rh = r.h * TILE;
-        walls.fillRect(rx - S, ry - S, rw + 2 * S, S);
-        walls.fillRect(rx - S, ry + rh, rw + 2 * S, S);
-        walls.fillRect(rx - S, ry - S, S, rh + 2 * S);
-        walls.fillRect(rx + rw, ry - S, S, rh + 2 * S);
+      const isB = (x: number, y: number) => inRects(building, x, y);
+      for (let x = 0; x < GRID_W; x++) {
+        for (let y = 0; y < GRID_H; y++) {
+          if (!isB(x, y)) continue;
+          const px = GX + x * TILE, py = GY + y * TILE;
+          if (!isB(x, y - 1)) walls.fillRect(px - S, py - S, TILE + 2 * S, S); // top
+          if (!isB(x, y + 1)) walls.fillRect(px - S, py + TILE, TILE + 2 * S, S); // bottom
+          if (!isB(x - 1, y)) walls.fillRect(px - S, py, S, TILE); // left
+          if (!isB(x + 1, y)) walls.fillRect(px + TILE, py, S, TILE); // right
+        }
       }
       // Cut a doorway in the foundation at each wing's entrance (matches the
       // sim's wall collision — ghosts may only cross here).

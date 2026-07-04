@@ -281,6 +281,19 @@ describe('building footprint & the grounds', () => {
     expect(block(1, 7, 2, 7)).toBe(false);
   });
 
+  it('adjacent building wings form one connected structure with a single entrance', () => {
+    // The Office With the Printer has two touching rectangles — they must read
+    // as one building (one entrance), reachable across their shared edge.
+    const printer = SCENARIOS[1];
+    expect(printer.building!.length).toBe(2);
+    expect(buildingEntrances(printer.building!).length).toBe(1);
+    const block = buildingBlocker(printer.building!)!;
+    // A step across the junction between the two rects is not walled off.
+    expect(inRects(printer.building!, 12, 5)).toBe(true);
+    expect(inRects(printer.building!, 13, 5)).toBe(true);
+    expect(block(12, 5, 13, 5)).toBe(false);
+  });
+
   it('indoor room doors are forced to face an inside corridor', () => {
     const sim = new Sim(basement, 8);
     sim.state.money += 10000;
