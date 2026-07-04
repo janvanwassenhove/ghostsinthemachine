@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+
+# Local editor / tooling config
+.claude/
+.vscode/
+*.log
+
+# Full-resolution art backups kept locally by the asset scripts (not needed to run)
+src/assets/game/_originals/
+src/assets/game/_originals_backup/
+src/assets/game/_dark_originals/
+src/assets/game/**/_*_backup/

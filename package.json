@@ -1,0 +1,21 @@
+{
+  "name": "ghostsinthemachine",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A haunted IT management sim for the browser. TypeScript + Vite + Phaser, static-only, deployable to GitHub Pages.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}
