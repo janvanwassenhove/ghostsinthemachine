@@ -82,7 +82,7 @@ export const ROOMS: RoomDef[] = [
   {
     id: 'printer_booth', name: 'Printer Exorcism Booth', short: 'PRINT',
     desc: 'Soundproofed. The chanting is for the printer. The padding is for the staff.',
-    cost: 240, minW: 2, minH: 3, color: 0x9a9a4d,
+    cost: 240, minW: 3, minH: 3, color: 0x9a9a4d,
     roles: ['printer_exorcist'],
     queueCap: 4, service: true, category: 'treatment',
   },
@@ -117,7 +117,7 @@ export const ROOMS: RoomDef[] = [
   {
     id: 'monitoring_shrine', name: 'Monitoring Shrine', short: 'MONITOR',
     desc: 'A wall of dashboards, all green, all lying. Staffed: fewer disasters, better audits.',
-    cost: 240, minW: 2, minH: 3, color: 0x3b8a8a,
+    cost: 240, minW: 3, minH: 3, color: 0x3b8a8a,
     roles: ['devops_janitor', 'architect_oracle'],
     queueCap: 0, service: false, special: 'monitor', category: 'support',
   },
@@ -154,7 +154,7 @@ export const ROOMS: RoomDef[] = [
   {
     id: 'server_farm', name: 'Server Farm (Literal)', short: 'FARM',
     desc: 'An actual barn of servers, grazing. They are load-balanced by a border collie. Ships surplus cycles for daily income; a Server Rancher boosts the yield.',
-    cost: 300, minW: 3, minH: 2, color: 0x8a7a3a,
+    cost: 300, minW: 3, minH: 3, color: 0x8a7a3a,
     roles: ['server_rancher'],
     queueCap: 0, service: false, outdoor: true, category: 'grounds',
   },

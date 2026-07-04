@@ -42,6 +42,10 @@ describe('data integrity', () => {
     for (const r of ROOMS) expect(cats.has(r.category)).toBe(true);
   });
 
+  it('every room is square, so its square floor-plan art fits without distortion', () => {
+    for (const r of ROOMS) expect(r.minW, r.id).toBe(r.minH);
+  });
+
   it('campaign buildings are inset from the map edges with a left walkway', () => {
     const W = 24, H = 15; // BAL.grid
     for (const sc of SCENARIOS) {
@@ -319,7 +323,7 @@ describe('staff assignment rules', () => {
   it('rejects incompatible roles', () => {
     const sim = new Sim(basement, 42);
     unlockAll(sim);
-    sim.buildRoom('printer_booth', 7, 5, 2, 3);
+    sim.buildRoom('printer_booth', 7, 5, 3, 3);
     // find a candidate that is NOT a printer exorcist
     const idx = sim.state.candidates.findIndex((c) => c.role !== 'printer_exorcist');
     sim.hire(idx);
