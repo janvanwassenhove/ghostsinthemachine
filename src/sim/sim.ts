@@ -457,17 +457,44 @@ export class Sim {
 
   // ------------------------------------------------------------------ spawning
 
+  /**
+   * Roles the hiring pool must always offer so every room this contract's
+   * incidents route to is staffable. Leads with the two generalists (Bug
+   * Whisperer covers Triage/Chapel/Arena, DevOps Janitor covers
+   * Triage/Patch/Release), then adds one compatible role for any required room
+   * they don't already cover. Restricted to roles unlocked so far.
+   */
+  hireMustOffer(): string[] {
+    const avail = this.state.scenario.availableRoles ?? Object.keys(ROLE_BY_ID);
+    const availSet = new Set(avail);
+    const must: string[] = [];
+    const add = (r: string) => { if (availSet.has(r) && !must.includes(r)) must.push(r); };
+    add('bug_whisperer');
+    add('devops_janitor');
+    const sc = this.state.scenario;
+    const pool = sc.incidentPool === 'all' ? INCIDENTS.map((i) => i.id) : sc.incidentPool;
+    const rooms = new Set<string>(['triage']);
+    for (const id of pool) {
+      const inc = INCIDENT_BY_ID[id];
+      if (inc) for (const r of inc.rooms) rooms.add(r);
+    }
+    for (const roomId of rooms) {
+      const def = ROOM_BY_ID[roomId];
+      if (!def || def.roles.length === 0 || !this.roomAvailable(roomId)) continue;
+      if (def.roles.some((r) => must.includes(r))) continue; // already coverable
+      const pick = def.roles.find((r) => availSet.has(r));
+      if (pick) add(pick);
+    }
+    return must;
+  }
+
   private refreshCandidates(): void {
-    const roles = this.state.scenario.availableRoles ?? Object.keys(ROLE_BY_ID);
+    const avail = this.state.scenario.availableRoles ?? Object.keys(ROLE_BY_ID);
+    const must = this.hireMustOffer();
+    const count = Math.max(BAL.candidateCount, must.length);
     this.state.candidates = [];
-    for (let i = 0; i < BAL.candidateCount; i++) {
-      // The pool always leads with the two generalists (Bug Whisperer covers
-      // Triage/Chapel/Arena, DevOps Janitor covers Triage/Patch/Release) so a
-      // fresh office is never unstaffable.
-      const role =
-        i === 0 ? ROLE_BY_ID['bug_whisperer'] :
-        i === 1 ? ROLE_BY_ID['devops_janitor'] :
-        ROLE_BY_ID[this.rng.pick(roles)];
+    for (let i = 0; i < count; i++) {
+      const role = ROLE_BY_ID[i < must.length ? must[i] : this.rng.pick(avail)];
       const skill = this.rng.int(1, Math.min(5, 2 + Math.floor(this.state.day / 2)));
       this.state.candidates.push({
         name: `${this.rng.pick([...STAFF_FIRST_NAMES])} ${this.rng.pick([...STAFF_LAST_NAMES])}`,

@@ -150,6 +150,32 @@ describe('hiring pool', () => {
     const allowed = new Set(basement.availableRoles);
     for (const c of sim.state.candidates) expect(allowed.has(c.role)).toBe(true);
   });
+
+  it('always offers a Printer Exorcist in the printer contract', () => {
+    const printer = SCENARIOS[1];
+    // Regardless of seed, the pool guarantees the contract-critical role.
+    for (const seed of [1, 2, 3, 7, 42, 99]) {
+      const sim = new Sim(printer, seed);
+      const roles = sim.state.candidates.map((c) => c.role);
+      expect(roles, `seed ${seed}`).toContain('printer_exorcist');
+      expect(roles, `seed ${seed}`).toContain('compliance_druid');
+    }
+  });
+
+  it('every contract offers a compatible role for every room its incidents need', () => {
+    for (const sc of SCENARIOS) {
+      const sim = new Sim(sc, 5);
+      const offered = new Set(sim.state.candidates.map((c) => c.role));
+      const pool = sc.incidentPool === 'all' ? INCIDENTS.map((i) => i.id) : sc.incidentPool;
+      const rooms = new Set(['triage', ...pool.flatMap((id) => INCIDENT_BY_ID[id].rooms)]);
+      for (const roomId of rooms) {
+        const def = ROOM_BY_ID[roomId];
+        if (def.roles.length === 0) continue; // any-role room
+        const staffable = def.roles.some((r) => offered.has(r));
+        expect(staffable, `${sc.id}: no hireable role for ${roomId}`).toBe(true);
+      }
+    }
+  });
 });
 
 describe('campaign progression (unlocks)', () => {
