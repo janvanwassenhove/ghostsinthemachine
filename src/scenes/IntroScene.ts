@@ -67,7 +67,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Controls.
     this.add.existing(button(this, cx - 96, GAME_HEIGHT - 60, '▶ Next [Space]', () => this.next(), { w: 170, h: 40 }));
-    this.add.existing(button(this, cx + 96, GAME_HEIGHT - 60, 'Skip ⏩', () => this.startGame(), { w: 150, h: 40, color: COLORS.textDim }));
+    this.add.existing(button(this, cx + 96, GAME_HEIGHT - 60, 'Skip ▶▶', () => this.startGame(), { w: 150, h: 40, color: COLORS.textDim }));
 
     this.input.keyboard?.on('keydown-SPACE', () => this.next());
     this.input.keyboard?.on('keydown-ENTER', () => this.next());

@@ -670,9 +670,9 @@ export class Sim {
     this.state.stats.resolved++;
     this.state.stats.resolvedByCategory[def.category] =
       (this.state.stats.resolvedByCategory[def.category] ?? 0) + 1;
-    if (this.rng.chance(0.25)) {
-      this.emit('good', `+$${payout} — ${this.rng.pick([...RESOLVE_LINES])}`);
-    }
+    // Always surface the payout so it's clear that resolving tickets earns money.
+    const flavour = this.rng.chance(0.4) ? ` — ${this.rng.pick([...RESOLVE_LINES])}` : '';
+    this.emit('good', `+$${payout} · ${def.name} resolved${flavour}`);
     // Step out of the door, then walk back to the entrance
     const out = doorOutside(exitFrom);
     inc.x = out.x + 0.5;
