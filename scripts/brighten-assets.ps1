@@ -17,6 +17,12 @@ $backup = Join-Path $dir '_dark_originals'
 New-Item -ItemType Directory -Force -Path $backup | Out-Null
 
 function Get-Curve([string]$name) {
+  # The Grounds art (garden plots) is far darker than the other rooms, so it
+  # needs a much stronger lift to read as an icon in the build menu / on the map.
+  if ($name -match 'bean_plantation|oak_grove|server_farm') {
+    if ($name -like 'roomplan_*') { return @(2.6, 1.25, 8) }
+    return @(2.3, 1.4, 12)   # room_ icons: strong lift so they show in the menu
+  }
   if ($name -like 'roomplan_*') { return @(2.1, 1.10, 5) }   # interiors: strong lift
   if ($name -like 'room_*')     { return @(1.5, 1.06, 3) }   # room icons: mild lift
   if ($name -like 'staff_*')    { return @(1.5, 1.06, 3) }   # staff portraits: mild lift

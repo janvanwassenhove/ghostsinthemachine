@@ -1461,6 +1461,26 @@ export class GameScene extends Phaser.Scene {
         add(this.add.image(x, cy, key).setDisplaySize(size, size));
       }
     };
+    // A staff avatar: portrait art when it exists, else a coloured initials
+    // disc so newly-added roles are never blank.
+    const staffAvatar = (roleId: string, x: number, cy: number, size = 42) => {
+      if (this.textures.exists(`staff_${roleId}`)) {
+        add(this.add.image(x, cy, `staff_${roleId}`).setDisplaySize(size, size));
+        return;
+      }
+      const role = ROLE_BY_ID[roleId];
+      const r = size / 2;
+      const g = this.add.graphics();
+      g.fillStyle(role?.color ?? 0x4e7a3a, 1);
+      g.lineStyle(2, COLORS.ghostGreen, 0.6);
+      g.fillCircle(x, cy, r);
+      g.strokeCircle(x, cy, r);
+      add(g);
+      add(this.add.text(x, cy, role?.initials ?? '?', {
+        fontFamily: FONT_FAMILY, fontSize: `${Math.max(10, Math.round(size * 0.34))}px`,
+        color: '#0b0f16', fontStyle: 'bold',
+      }).setOrigin(0.5));
+    };
 
     switch (this.panelMode) {
       case 'info': {
@@ -1555,14 +1575,13 @@ export class GameScene extends Phaser.Scene {
         this.sim.state.candidates.forEach((c, i) => {
           const rowY = y;
           const role = ROLE_BY_ID[c.role];
-          const hasArt = this.textures.exists(`staff_${c.role}`);
-          const tx = hasArt ? 52 : 8;
+          const tx = 52; // always leave room for the avatar (art or initials disc)
           const tw = W - tx - 12;
           line(`${c.name}`, COLORS.textPrimary, '14px', tx, tw);
           line(`${role.name} — skill ${'★'.repeat(c.skill)}${'·'.repeat(5 - c.skill)} — $${c.salary}/day`, COLORS.textDim, '12px', tx, tw);
           line(`Works in: ${roomsForRole(c.role).map((r) => r.short).join(' · ')}`, COLORS.ghostGreenCss, '12px', tx, tw);
           line(`(${c.quirk})`, '#8a97a8', '12px', tx, tw);
-          if (hasArt) add(this.add.image(28, rowY + 20, `staff_${c.role}`).setDisplaySize(42, 42));
+          staffAvatar(c.role, 28, rowY + 20, 42);
           add(button(this, W / 2, y + 13, 'Hire', () => this.action(this.sim.hire(i)), {
             w: W - 20, h: 24, fontSize: '12px', enabled: this.sim.state.money >= c.salary,
           }));
@@ -1581,7 +1600,7 @@ export class GameScene extends Phaser.Scene {
             `${st.name} [${ROLE_BY_ID[st.role].initials}] E${Math.round(st.energy)} M${Math.round(st.morale)} — ${where}`,
             () => { this.selectedStaff = st.id; this.panelMode = 'staff'; this.rebuildPanel(); },
             { w: W - 44, h: 24, fontSize: '11px' }));
-          icon(`staff_${st.role}`, y + 12, 22, 15);
+          staffAvatar(st.role, 15, y + 12, 22);
           y += 27;
         }
         break;
@@ -1649,7 +1668,7 @@ export class GameScene extends Phaser.Scene {
         if (!st) { this.panelMode = 'roster'; this.rebuildPanel(); return; }
         const role = ROLE_BY_ID[st.role];
         title(st.name);
-        icon(`staff_${st.role}`, 42, 48, W - 34);
+        staffAvatar(st.role, W - 34, 42, 48);
         line(`${role.name} — skill ${st.skill.toFixed(1)}/5`, COLORS.textPrimary);
         line(role.desc, COLORS.textDim, '12px');
         line(`Energy ${Math.round(st.energy)}   Morale ${Math.round(st.morale)}   $${st.salary}/day`, COLORS.textPrimary);
