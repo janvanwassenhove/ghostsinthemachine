@@ -178,6 +178,36 @@ describe('hiring pool', () => {
   });
 });
 
+describe('objective-aligned spawns', () => {
+  it('spawns enough of the required category to meet a resolveCategory objective', () => {
+    // "The Office With the Printer" needs 8 print incidents out of 20 total.
+    const printer = SCENARIOS[1];
+    const catObj = printer.win.find((w) => w.type === 'resolveCategory')!;
+    const totalObj = printer.win.find((w) => w.type === 'resolve')!;
+    const targetFrac = catObj.value / totalObj.value; // 8 / 20 = 0.4
+    // Sample the spawn distribution over many spawns.
+    const sim = new Sim(printer, 42);
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 2000; i++) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const def = INCIDENT_BY_ID[(sim as any).rng.pick((sim as any).spawnPool())];
+      counts[def.category] = (counts[def.category] ?? 0) + 1;
+    }
+    const printFrac = (counts['print'] ?? 0) / 2000;
+    // The required category should be at least its objective share (with margin),
+    // so 8 print resolves is realistically reachable within ~20 total.
+    expect(printFrac).toBeGreaterThanOrEqual(targetFrac - 0.05);
+  });
+
+  it('leaves spawns uniform when a contract has no category objective', () => {
+    const basementSim = new Sim(basement, 1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bag = (basementSim as any).spawnPool();
+    // basement pool has 4 distinct incidents, none required by category → no dupes
+    expect(new Set(bag).size).toBe(bag.length);
+  });
+});
+
 describe('campaign progression (unlocks)', () => {
   it('unlocks rooms and roles cumulatively across the seven contracts', () => {
     // Each contract keeps everything earlier ones unlocked, and the final one

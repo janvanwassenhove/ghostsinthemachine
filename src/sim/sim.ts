@@ -28,6 +28,7 @@ export class Sim {
   private beanGrowth = 0; // fractional beans accrued by Java Bean Plantations
   private wallBlocker?: EdgeBlocker;
   private wallComputed = false;
+  private spawnBag?: string[]; // cached, category-weighted incident spawn pool
 
   constructor(scenario: ScenarioDef, seed: number) {
     this.rng = new Rng(seed);
@@ -506,10 +507,43 @@ export class Sim {
     }
   }
 
-  private spawnIncident(): void {
+  /**
+   * The incident spawn pool, weighted so that categories the contract's win
+   * conditions require (e.g. "resolve 8 printer incidents") arrive often enough
+   * to actually be met. Uniform when the contract has no category objective.
+   * Cached — the scenario doesn't change over a run.
+   */
+  private spawnPool(): string[] {
+    if (this.spawnBag) return this.spawnBag;
     const sc = this.state.scenario;
-    const poolIds = sc.incidentPool === 'all' ? INCIDENTS.map((i) => i.id) : sc.incidentPool;
-    const def = INCIDENT_BY_ID[this.rng.pick([...poolIds])];
+    const poolIds = sc.incidentPool === 'all' ? INCIDENTS.map((i) => i.id) : [...sc.incidentPool];
+    const win = sc.win ?? [];
+    const reqCats = new Set(
+      win.filter((w) => w.type === 'resolveCategory' && w.category).map((w) => w.category!),
+    );
+    if (reqCats.size === 0) { this.spawnBag = poolIds; return poolIds; }
+    // Aim for the required categories to be roughly the objective's share of the
+    // total (e.g. 8 print / 20 total = 40%), so meeting it lines up with the run.
+    const totalResolve = win.find((w) => w.type === 'resolve')?.value ?? 0;
+    const reqValue = win.filter((w) => w.type === 'resolveCategory').reduce((a, w) => a + w.value, 0);
+    const targetFrac = totalResolve > 0 ? Math.min(0.6, reqValue / totalResolve) : 0.45;
+    const nReq = poolIds.filter((id) => reqCats.has(INCIDENT_BY_ID[id].category)).length;
+    const nOther = poolIds.length - nReq;
+    let weight = 1;
+    if (nReq > 0 && nOther > 0 && targetFrac < 1) {
+      weight = Math.max(1, Math.ceil((targetFrac * nOther) / (nReq * (1 - targetFrac))));
+    }
+    const bag: string[] = [];
+    for (const id of poolIds) {
+      const w = reqCats.has(INCIDENT_BY_ID[id].category) ? weight : 1;
+      for (let k = 0; k < w; k++) bag.push(id);
+    }
+    this.spawnBag = bag;
+    return bag;
+  }
+
+  private spawnIncident(): void {
+    const def = INCIDENT_BY_ID[this.rng.pick(this.spawnPool())];
     const tier = this.state.trust < 40 ? 1 : this.state.trust < 60 ? 2 : this.state.trust < 80 ? 3 : 4;
     const severity = clamp(
       1 + Math.floor(this.rng.next() * tier + (this.state.day - 1) * 0.2), 1, 5,
