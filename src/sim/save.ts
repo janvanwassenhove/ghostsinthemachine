@@ -16,6 +16,7 @@ export interface Settings {
   autosave: boolean;
   sound: boolean;
   defaultSpeed: 1 | 2;
+  difficulty: 'cozy' | 'standard' | 'nightmare';
 }
 
 function safeParse<T>(raw: string | null): T | null {
@@ -93,7 +94,7 @@ export function recordResult(scenarioId: string, stars: number): void {
 
 export function loadSettings(): Settings {
   return (
-    { chatter: true, autosave: true, sound: true, defaultSpeed: 1,
+    { chatter: true, autosave: true, sound: true, defaultSpeed: 1, difficulty: 'standard',
       ...safeParse<Settings>(localStorage.getItem(KEY_SETTINGS)) }
   );
 }

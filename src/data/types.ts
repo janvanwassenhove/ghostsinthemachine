@@ -115,6 +115,11 @@ export interface ScenarioDef {
   startMoney: number;
   startDebt: number;
   startTrust: number;
+  /** Starting resources (default 10 beans / 5 coffee); set by the difficulty preset. */
+  startBeans?: number;
+  startCoffee?: number;
+  /** Difficulty preset applied to this contract instance, if any. */
+  difficulty?: 'cozy' | 'standard' | 'nightmare';
   spawnIntervalStart: number; // seconds between spawns at day 1
   spawnIntervalMin: number;
   incidentPool: string[] | 'all';

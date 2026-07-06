@@ -5,6 +5,7 @@ import { ROOMS, ROOM_BY_ID } from '../src/data/rooms';
 import { ROLES } from '../src/data/roles';
 import { TICKET_TITLES } from '../src/data/humour';
 import { Sim } from '../src/sim/sim';
+import { DIFFICULTY_BY_ID, withDifficulty } from '../src/data/difficulty';
 import { buildingBlocker, buildingEntrances, doorOutside, inRects } from '../src/sim/grid';
 
 const basement = SCENARIOS[0];
@@ -175,6 +176,35 @@ describe('hiring pool', () => {
         expect(staffable, `${sc.id}: no hireable role for ${roomId}`).toBe(true);
       }
     }
+  });
+});
+
+describe('campaign difficulty', () => {
+  it('Cozy eases the contract; Nightmare tightens it; Standard is unchanged', () => {
+    const cozy = withDifficulty(basement, DIFFICULTY_BY_ID['cozy']);
+    const std = withDifficulty(basement, DIFFICULTY_BY_ID['standard']);
+    const hard = withDifficulty(basement, DIFFICULTY_BY_ID['nightmare']);
+
+    // Budget
+    expect(cozy.startMoney).toBeGreaterThan(basement.startMoney);
+    expect(std.startMoney).toBe(basement.startMoney);
+    expect(hard.startMoney).toBeLessThan(basement.startMoney);
+    // Beans
+    expect(cozy.startBeans!).toBeGreaterThan(hard.startBeans!);
+    expect(std.startBeans).toBe(10);
+    // Disasters & spawn pressure
+    expect(cozy.disasterFreq).toBeLessThan(std.disasterFreq || 0.0001);
+    expect(hard.spawnIntervalStart).toBeLessThan(std.spawnIntervalStart); // faster spawns
+    // Objectives are untouched by difficulty
+    expect(hard.win).toEqual(basement.win);
+  });
+
+  it('the Sim starts with the difficulty-scaled beans and coffee', () => {
+    const hard = withDifficulty(basement, DIFFICULTY_BY_ID['nightmare']);
+    const sim = new Sim(hard, 1);
+    expect(sim.state.beans).toBe(DIFFICULTY_BY_ID['nightmare'].startBeans);
+    expect(sim.state.coffee).toBe(DIFFICULTY_BY_ID['nightmare'].startCoffee);
+    expect(sim.state.money).toBe(hard.startMoney);
   });
 });
 

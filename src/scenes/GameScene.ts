@@ -1486,6 +1486,10 @@ export class GameScene extends Phaser.Scene {
       case 'info': {
         title(this.sim.state.scenario.name);
         line(this.sim.state.scenario.desc, COLORS.textDim);
+        if (this.sim.state.scenario.difficulty && !this.sim.state.scenario.sandbox) {
+          const dn = this.sim.state.scenario.difficulty;
+          line(`Difficulty: ${dn.charAt(0).toUpperCase() + dn.slice(1)}`, dn === 'nightmare' ? COLORS.danger : dn === 'cozy' ? COLORS.ghostGreenCss : '#e8d97e', '12px');
+        }
         y += 6;
         line('How to play:', COLORS.ghostGreenCss);
         line('• Build a Ticket Triage Desk first — every incident goes there before treatment.', COLORS.textDim);
