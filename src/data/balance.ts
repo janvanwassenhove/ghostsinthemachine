@@ -22,7 +22,7 @@ export const BAL = {
   moraleResignThreshold: 8,
   moraleResignSeconds: 20, // sustained below threshold
   trainSkillPerDay: 0.6,
-  trainDebtPerStaffPerDay: 6,
+  trainDebtPerStaffPerDay: 9,
 
   // Coffee
   brewSeconds: 4, // unstaffed seconds per coffee
@@ -36,13 +36,14 @@ export const BAL = {
   escalate1: 0.5, // patience fraction thresholds
   escalate2: 0.25,
   warRoomEscalateFactor: 0.55, // thresholds multiplied when war room staffed
-  failTrustHit: 3,
-  failDebtHit: 2,
-  resolveTrustPerSeverity: 0.8,
+  failTrustHit: 2.5,
+  failDebtHit: 1.5,
+  resolveTrustPerSeverity: 1.0,
   retargetInterval: 4, // seconds between "is there a room for me now?" checks
   stuckPatienceFactor: 1.6, // patience drains faster when no room exists
 
   // Rooms
+  triageServiceFactor: 0.4, // Triage is quick sorting, not treatment — much faster
   conditionPerService: 4, // wear per completed service
   brokenThreshold: 0, // condition <= 0 -> broken
   roomLevelSpeed: 0.25, // +25% speed per level above 1
@@ -65,9 +66,9 @@ export const BAL = {
   disasterBaseChance: 0.14,
 
   // Audits
-  auditPassScore: 50,
-  auditFine: 220,
-  auditGrant: 180,
+  auditPassScore: 46,
+  auditFine: 170,
+  auditGrant: 200,
   auditTrustPass: 6,
   auditTrustFail: 8,
 

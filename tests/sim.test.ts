@@ -180,23 +180,27 @@ describe('hiring pool', () => {
 });
 
 describe('campaign difficulty', () => {
-  it('Cozy eases the contract; Nightmare tightens it; Standard is unchanged', () => {
+  it('grades the contract: Cozy easiest, Standard a cushion, Nightmare hardest', () => {
     const cozy = withDifficulty(basement, DIFFICULTY_BY_ID['cozy']);
     const std = withDifficulty(basement, DIFFICULTY_BY_ID['standard']);
     const hard = withDifficulty(basement, DIFFICULTY_BY_ID['nightmare']);
 
-    // Budget
-    expect(cozy.startMoney).toBeGreaterThan(basement.startMoney);
-    expect(std.startMoney).toBe(basement.startMoney);
-    expect(hard.startMoney).toBeLessThan(basement.startMoney);
-    // Beans
-    expect(cozy.startBeans!).toBeGreaterThan(hard.startBeans!);
-    expect(std.startBeans).toBe(10);
-    // Disasters & spawn pressure
-    expect(cozy.disasterFreq).toBeLessThan(std.disasterFreq || 0.0001);
-    expect(hard.spawnIntervalStart).toBeLessThan(std.spawnIntervalStart); // faster spawns
-    // Objectives are untouched by difficulty
+    // Budget: strictly graded, easiest to hardest
+    expect(cozy.startMoney).toBeGreaterThan(std.startMoney);
+    expect(std.startMoney).toBeGreaterThan(hard.startMoney);
+    // Beans: strictly graded
+    expect(cozy.startBeans!).toBeGreaterThan(std.startBeans!);
+    expect(std.startBeans!).toBeGreaterThan(hard.startBeans!);
+    // Spawn pressure: Nightmare spawns fastest, Cozy slowest
+    expect(hard.spawnIntervalStart).toBeLessThan(std.spawnIntervalStart);
+    expect(std.spawnIntervalStart).toBeLessThan(cozy.spawnIntervalStart);
+    // Disaster frequency is graded (measured on a contract that has disasters)
+    const cozyP = withDifficulty(SCENARIOS[1], DIFFICULTY_BY_ID['cozy']);
+    const hardP = withDifficulty(SCENARIOS[1], DIFFICULTY_BY_ID['nightmare']);
+    expect(cozyP.disasterFreq).toBeLessThan(hardP.disasterFreq);
+    // Objectives themselves are untouched by difficulty
     expect(hard.win).toEqual(basement.win);
+    expect(cozy.win).toEqual(basement.win);
   });
 
   it('the Sim starts with the difficulty-scaled beans and coffee', () => {

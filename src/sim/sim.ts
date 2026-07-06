@@ -694,8 +694,8 @@ export class Sim {
 
   private resolveIncident(inc: IncidentState, exitFrom: RoomState): void {
     const def = INCIDENT_BY_ID[inc.def];
-    const trustMult = 0.75 + this.state.trust / 200;
-    const payout = Math.round(inc.bounty * (0.6 + inc.severity * 0.4) * trustMult);
+    const trustMult = 0.8 + this.state.trust / 200;
+    const payout = Math.round(inc.bounty * (0.8 + inc.severity * 0.45) * trustMult);
     this.state.money += payout;
     this.state.stats.income += payout;
     this.state.trust = clamp(
@@ -732,6 +732,7 @@ export class Sim {
       staffFactor *= 1 + (staff.length - 1) * 0.2; // extra hands help a bit
     }
     let t = (def.service * (0.7 + inc.severity * 0.25)) / (roomSpeed * staffFactor);
+    if (ROOM_BY_ID[room.def].special === 'triage') t *= BAL.triageServiceFactor;
     if (this.state.refactoringEvent > 0) t *= 1.6;
     return t;
   }

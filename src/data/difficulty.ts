@@ -20,20 +20,20 @@ export const DIFFICULTIES: Difficulty[] = [
   {
     id: 'cozy', name: 'Cozy',
     blurb: 'Fatter budget, a full bean tin, and the hauntings mostly keep office hours.',
-    moneyMult: 1.4, startBeans: 20, startCoffee: 8,
-    disasterMult: 0.55, spawnMult: 1.25, trustBonus: 10, debtBonus: -5,
+    moneyMult: 1.6, startBeans: 24, startCoffee: 10,
+    disasterMult: 0.45, spawnMult: 1.45, trustBonus: 15, debtBonus: -15,
   },
   {
     id: 'standard', name: 'Standard',
-    blurb: 'The contract exactly as it was written. The intended haunting.',
-    moneyMult: 1, startBeans: 10, startCoffee: 5,
-    disasterMult: 1, spawnMult: 1, trustBonus: 0, debtBonus: 0,
+    blurb: 'The full contract with a little breathing room. The intended haunting.',
+    moneyMult: 1.2, startBeans: 12, startCoffee: 5,
+    disasterMult: 0.9, spawnMult: 1.12, trustBonus: 6, debtBonus: -6,
   },
   {
     id: 'nightmare', name: 'Nightmare',
     blurb: 'Shoestring budget, near-empty bean tin, and the mainframes never sleep.',
-    moneyMult: 0.7, startBeans: 4, startCoffee: 2,
-    disasterMult: 1.5, spawnMult: 0.8, trustBonus: -5, debtBonus: 8,
+    moneyMult: 0.88, startBeans: 8, startCoffee: 4,
+    disasterMult: 1.25, spawnMult: 0.9, trustBonus: -2, debtBonus: 3,
   },
 ];
 
