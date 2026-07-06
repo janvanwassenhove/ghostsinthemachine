@@ -893,8 +893,15 @@ export class GameScene extends Phaser.Scene {
     if (cached) return cached;
     const rooms = this.sim.state.rooms;
     const cap = this.sim.queueCap(room) + 1;
+    // Keep the lane on the room's own side of the building wall so queued ghosts
+    // never spill across it onto the grounds (indoor rooms at the footprint's edge
+    // would otherwise snake their queue outside the building).
+    const building = this.sim.state.scenario.building;
+    const outdoor = ROOM_BY_ID[room.def].outdoor;
+    const onSide = (x: number, y: number) =>
+      !building ? true : outdoor ? !inRects(building, x, y) : inRects(building, x, y);
     const walkable = (x: number, y: number) =>
-      x >= 0 && y >= 0 && x < GRID_W && y < GRID_H && !roomAt(rooms, x, y);
+      x >= 0 && y >= 0 && x < GRID_W && y < GRID_H && !roomAt(rooms, x, y) && onSide(x, y);
     const out = doorOutside(room);
     const key = (x: number, y: number) => `${x},${y}`;
     const used = new Set<string>([key(out.x, out.y)]);
@@ -1407,7 +1414,7 @@ export class GameScene extends Phaser.Scene {
       else if (payable) msg = `⚡ ${DISASTER_BY_ID[payable.def].name} — click the ⚡ alert (top-left) to pay $${DISASTER_BY_ID[payable.def].fixCost} and end it, or wait it out.`;
       else if (anyDisaster) msg = `⚡ ${DISASTER_BY_ID[anyDisaster.def].name} in progress — it passes on its own; keep the office running.`;
       else if (noRoom) msg = `▸ A ${INCIDENT_BY_ID[noRoom.def].name} has nowhere to go — build a ${ROOM_BY_ID[noRoom.chain[0]]?.name ?? 'matching room'}.`;
-      else if (unstaffed) msg = `▸ ${ROOM_BY_ID[unstaffed.def].name} has a queue but no staff — click it and assign someone.`;
+      else if (unstaffed) msg = `▸ ${ROOM_BY_ID[unstaffed.def].name} has a queue but no staff — click it to hire or assign someone.`;
       else if (noReactor) msg = '⚠ No Coffee Reactor — build one so staff can recharge on breaks, or they burn out.';
       else if (s.coffee === 0 && (tired || s.staff.length > 0)) msg = '⚠ Coffee is out — buy ＋Beans (top bar); the reactor brews them so tired staff recover.';
       else if (tired && s.beans === 0) msg = '▸ Staff are low on energy and beans are empty — buy ＋Beans to keep coffee flowing.';
@@ -1646,8 +1653,36 @@ export class GameScene extends Phaser.Scene {
               { w: W - 20, h: 24, fontSize: '12px' }));
             y += 27;
           }
-        } else if (def.roles.length > 0) {
-          line(`Works here: ${def.roles.map((r) => ROLE_BY_ID[r].name).join(', ')}`, '#8a97a8', '12px');
+        } else {
+          // Nobody on staff fits this room — offer to hire a compatible candidate
+          // straight from the pool and drop them in, so an unstaffed room isn't a
+          // dead end (matches the "click it and assign someone" prompt).
+          const staffMatters = def.service || def.roles.length > 0 || def.special === 'refactor';
+          const compat = this.sim.state.candidates.filter(
+            (c) => def.roles.length === 0 || def.roles.includes(c.role),
+          );
+          if (staffMatters && compat.length > 0) {
+            if (def.roles.length > 0) {
+              line(`Works here: ${def.roles.map((r) => ROLE_BY_ID[r].name).join(', ')}`, '#8a97a8', '12px');
+            }
+            line('Hire for this room:', COLORS.ghostGreenCss);
+            for (const c of compat.slice(0, 4)) {
+              add(button(this, W / 2, y + 12,
+                `+ Hire ${c.name} [${ROLE_BY_ID[c.role].initials}] $${c.salary}`,
+                () => {
+                  const idx = this.sim.state.candidates.indexOf(c);
+                  if (idx < 0) { this.rebuildPanel(); return; }
+                  const err = this.sim.hire(idx);
+                  if (err) { this.action(err); return; }
+                  const hired = this.sim.state.staff[this.sim.state.staff.length - 1];
+                  this.action(this.sim.assign(hired.id, room.id));
+                },
+                { w: W - 20, h: 24, fontSize: '12px', enabled: this.sim.state.money >= c.salary }));
+              y += 27;
+            }
+          } else if (def.roles.length > 0) {
+            line(`Works here: ${def.roles.map((r) => ROLE_BY_ID[r].name).join(', ')}`, '#8a97a8', '12px');
+          }
         }
         y += 6;
         btn('Rotate door ↻', () => this.action(this.sim.rotateRoom(room.id)));
