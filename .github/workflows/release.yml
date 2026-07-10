@@ -1,61 +1,84 @@
 name: Release
 
-# Cut a release by pushing a version tag that matches package.json:
-#   npm version minor      # bumps package.json + creates the tag
-#   git push --follow-tags
+# Every push to main cuts a patch release: the workflow bumps package.json,
+# tags it, builds the Windows + macOS installers and publishes a GitHub Release
+# with screenshots and an auto-generated changelog.
 #
-# This never touches GitHub Pages — deploy.yml is driven by pushes to `main`,
-# and a tag push does not match that filter.
+# Use the manual "Run workflow" button for a minor/major bump instead.
+#
+# Loop safety: the version-bump commit is pushed with the default GITHUB_TOKEN,
+# and GitHub deliberately does NOT trigger workflows from GITHUB_TOKEN pushes, so
+# it cannot re-trigger this workflow. The commit also carries [skip ci] and the
+# `chore(release):` guard below, in case a PAT is ever wired up here.
+#
+# This never touches GitHub Pages — deploy.yml runs on pushes to main too, but
+# the bump commit's [skip ci] keeps it from redeploying for the version bump.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        default: patch
+        options: [patch, minor, major]
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+  group: release-main
+  cancel-in-progress: false # never abandon a half-published release
 
 jobs:
-  # ---------------------------------------------------------------- guard rails
-  verify:
-    name: Test & verify version
+  # -------------------------------------------- test, bump the version, tag it
+  prepare:
+    name: Test, bump & tag
     runs-on: ubuntu-latest
+    # Skip the bump commit itself, and let a human opt out with [skip release].
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!startsWith(github.event.head_commit.message, 'chore(release):') &&
+       !contains(github.event.head_commit.message, '[skip release]'))
     outputs:
-      version: ${{ steps.v.outputs.version }}
-      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main # release the current tip of main, not a stale SHA
+          fetch-depth: 0 # full history for the changelog
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
         env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1 # no Electron needed just to run tests
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1 # tests don't need the Electron binary
       - run: npm test
 
-      # The tag must equal v<package.json version>: electron-updater derives the
-      # update feed from the version, so a mismatch silently breaks auto-update.
-      - id: v
-        shell: bash
+      - name: Bump, commit and tag
+        id: bump
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="$(node -p "require('./package.json').version")"
-          if [ "$TAG" != "v$VERSION" ]; then
-            echo "::error::Tag '$TAG' does not match package.json version '$VERSION' (expected 'v$VERSION')."
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          LEVEL='${{ github.event.inputs.bump || 'patch' }}'
+          # npm version updates package.json + lockfile, commits and tags v<x>.
+          # tail -n1 guards against npm printing notices before the version line.
+          TAG="$(npm version "$LEVEL" -m 'chore(release): %s [skip ci]' | tail -n1)"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          git push --follow-tags origin HEAD:main
 
   # ------------------------------------------------------------- screenshots
   screenshots:
     name: Capture screenshots
-    needs: verify
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -75,7 +98,7 @@ jobs:
   # max-parallel: 1 so the two runners never race to create that draft.
   build:
     name: Build ${{ matrix.os }}
-    needs: verify
+    needs: prepare
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -88,6 +111,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -109,11 +134,13 @@ jobs:
   # ------------------------------------------------------------ release notes
   publish:
     name: Compose notes & publish
-    needs: [verify, screenshots, build]
+    needs: [prepare, screenshots, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 } # full history so we can diff against the last tag
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0 # full history so we can diff against the last tag
 
       - uses: actions/download-artifact@v4
         with:
@@ -123,13 +150,13 @@ jobs:
       - name: Attach screenshots to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ needs.verify.outputs.tag }}" screenshots/*.png --clobber
+        run: gh release upload "${{ needs.prepare.outputs.tag }}" screenshots/*.png --clobber
 
       - name: Compose release notes
         shell: bash
         env:
-          TAG: ${{ needs.verify.outputs.tag }}
-          VERSION: ${{ needs.verify.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -171,7 +198,7 @@ jobs:
             echo
             echo "## What's changed"
             echo
-            git log --no-merges --pretty=format:'- %s' "$RANGE" || echo "- Initial release"
+            git log --no-merges --pretty=format:'- %s' "$RANGE" | grep -v '^- chore(release):' || echo "- Initial release"
             echo
             echo
             if [ -n "$PREV" ]; then
@@ -185,8 +212,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release edit "${{ needs.verify.outputs.tag }}" \
-            --title "Ghosts in the Machine ${{ needs.verify.outputs.tag }}" \
+          gh release edit "${{ needs.prepare.outputs.tag }}" \
+            --title "Ghosts in the Machine ${{ needs.prepare.outputs.tag }}" \
             --notes-file notes.md \
             --draft=false \
             --latest
