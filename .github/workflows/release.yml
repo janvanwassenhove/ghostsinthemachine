@@ -93,21 +93,25 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------- installers
-  # electron-builder creates (or reuses) a DRAFT GitHub Release for this tag and
-  # uploads the installers plus latest.yml / latest-mac.yml — the update feeds.
-  # max-parallel: 1 so the two runners never race to create that draft.
+  # Each runner only BUILDS (electron-builder --publish never) and uploads its
+  # installers + the update feed (latest.yml / latest-mac.yml) as an artifact.
+  # A single publish job assembles them, so the two runners never touch the
+  # GitHub release concurrently. electron-builder still bakes app-update.yml
+  # into the app from electron-builder.yml's publish config, so auto-update
+  # works once the feed files are attached to the release below.
   build:
     name: Build ${{ matrix.os }}
     needs: prepare
     strategy:
-      max-parallel: 1
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             args: --win
+            artifact: installers-windows
           - os: macos-latest
             args: --mac
+            artifact: installers-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -118,10 +122,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Package & publish to draft release
-        run: npx electron-builder ${{ matrix.args }} --publish always
+      - name: Package installers
+        run: npx electron-builder ${{ matrix.args }} --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Windows code signing. Unset -> electron-builder builds unsigned and
           # SmartScreen warns on first run; the installer still works.
           CSC_LINK: ${{ secrets.WINDOWS_CERT_BASE64 }}
@@ -130,6 +133,17 @@ jobs:
           # identity that isn't there. (Signing macOS is what enables mac
           # auto-update — see README.)
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/latest*.yml
+          if-no-files-found: error
 
   # ------------------------------------------------------------ release notes
   publish:
@@ -142,15 +156,10 @@ jobs:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0 # full history so we can diff against the last tag
 
+      # Pull every artifact (screenshots + both platforms' installers) into ./artifacts/*.
       - uses: actions/download-artifact@v4
         with:
-          name: screenshots
-          path: screenshots
-
-      - name: Attach screenshots to the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ needs.prepare.outputs.tag }}" screenshots/*.png --clobber
+          path: artifacts
 
       - name: Compose release notes
         shell: bash
@@ -208,12 +217,19 @@ jobs:
 
           echo "--- notes.md ---"; cat notes.md
 
-      - name: Publish the release
+      - name: Create the release and upload every asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          gh release edit "${{ needs.prepare.outputs.tag }}" \
-            --title "Ghosts in the Machine ${{ needs.prepare.outputs.tag }}" \
+          set -euo pipefail
+          # Installers, update feeds (latest*.yml), blockmaps and screenshots.
+          mapfile -t FILES < <(find artifacts -type f \
+            \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \
+               -o -name '*.blockmap' -o -name 'latest*.yml' -o -name '*.png' \) | sort)
+          printf 'attaching:\n'; printf '  %s\n' "${FILES[@]}"
+          gh release create "$TAG" \
+            --title "Ghosts in the Machine $TAG" \
             --notes-file notes.md \
-            --draft=false \
-            --latest
+            --latest \
+            "${FILES[@]}"
