@@ -1,7 +1,7 @@
 {
   "name": "ghostsinthemachine",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "A haunted IT management sim for the browser. TypeScript + Vite + Phaser, static-only, deployable to GitHub Pages.",
