@@ -78,7 +78,7 @@ export class MainMenuScene extends Phaser.Scene {
     );
 
     this.add
-      .text(cx, GAME_HEIGHT - 40, 'v1.0 — an original game. All ghosts are fictional. Any resemblance to your production environment is coincidental.', {
+      .text(cx, GAME_HEIGHT - 40, `v${__APP_VERSION__} — an original game. All ghosts are fictional. Any resemblance to your production environment is coincidental.`, {
         fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: COLORS.textDim,
