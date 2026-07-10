@@ -1,13 +1,25 @@
 # CLAUDE.md — Operational Rules for "Ghosts in the Machine"
 
-Browser game: TypeScript + Vite + Phaser. Static site, no backend, no server runtime, no database. Persistence via LocalStorage only. Deployed to GitHub Pages.
+Browser game: TypeScript + Vite + Phaser. Static site, no backend, no server runtime, no database. Persistence via LocalStorage only. Deployed to GitHub Pages, and also shipped as a desktop app (Electron shell around the same `dist/`).
 
 ## Commands
 
-- `npm install` — install dependencies
+- `npm install` — install dependencies (prefix `ELECTRON_SKIP_BINARY_DOWNLOAD=1` for web-only work)
 - `npm run dev` — dev server
 - `npm run build` — type-check (`tsc --noEmit`) then production build to `dist/`
 - `npm run preview` — serve the production build locally
+- `npm test` — vitest
+- `npm run dist:win` / `npm run dist:mac` — build desktop installers into `release/`
+- `npm run screenshots` — capture gameplay screenshots (used by the release workflow)
+
+## Distribution
+
+Two independent pipelines — do not let one break the other:
+
+- **GitHub Pages** — `.github/workflows/deploy.yml`, triggered by pushes to `main`.
+- **Desktop installers** — `.github/workflows/release.yml`, triggered by `v*` tags. Builds Windows + macOS, publishes a GitHub Release with installers, screenshots and an auto-generated changelog.
+
+The desktop shell lives in `electron/main.cjs`; packaging is configured in `electron-builder.yml`. Phaser is a **devDependency** on purpose (Vite bundles it into `dist/`), so it is never shipped twice inside the asar. Auto-update (electron-updater) reads `latest.yml` from the release; the git tag **must** equal `v<package.json version>` or updates silently break. macOS builds are unsigned, so mac auto-update is inert until an Apple certificate is added.
 
 ## Rules
 

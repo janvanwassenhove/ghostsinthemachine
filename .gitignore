@@ -3,6 +3,11 @@ dist/
 *.local
 .DS_Store
 
+# Desktop installers (electron-builder output) and CI-captured screenshots.
+# build/icon.png IS tracked — the .ico/.icns are derived from it.
+release/
+screenshots/
+
 # Local editor / tooling config
 .claude/
 .vscode/

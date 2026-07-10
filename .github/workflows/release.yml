@@ -1,0 +1,192 @@
+name: Release
+
+# Cut a release by pushing a version tag that matches package.json:
+#   npm version minor      # bumps package.json + creates the tag
+#   git push --follow-tags
+#
+# This never touches GitHub Pages — deploy.yml is driven by pushes to `main`,
+# and a tag push does not match that filter.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------- guard rails
+  verify:
+    name: Test & verify version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1 # no Electron needed just to run tests
+      - run: npm test
+
+      # The tag must equal v<package.json version>: electron-updater derives the
+      # update feed from the version, so a mismatch silently breaks auto-update.
+      - id: v
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag '$TAG' does not match package.json version '$VERSION' (expected 'v$VERSION')."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  # ------------------------------------------------------------- screenshots
+  screenshots:
+    name: Capture screenshots
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+          if-no-files-found: error
+
+  # ------------------------------------------------------------- installers
+  # electron-builder creates (or reuses) a DRAFT GitHub Release for this tag and
+  # uploads the installers plus latest.yml / latest-mac.yml — the update feeds.
+  # max-parallel: 1 so the two runners never race to create that draft.
+  build:
+    name: Build ${{ matrix.os }}
+    needs: verify
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win
+          - os: macos-latest
+            args: --mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+
+      - name: Package & publish to draft release
+        run: npx electron-builder ${{ matrix.args }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Windows code signing. Unset -> electron-builder builds unsigned and
+          # SmartScreen warns on first run; the installer still works.
+          CSC_LINK: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          # macOS is unsigned: stop electron-builder hunting for a keychain
+          # identity that isn't there. (Signing macOS is what enables mac
+          # auto-update — see README.)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # ------------------------------------------------------------ release notes
+  publish:
+    name: Compose notes & publish
+    needs: [verify, screenshots, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # full history so we can diff against the last tag
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots
+
+      - name: Attach screenshots to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.verify.outputs.tag }}" screenshots/*.png --clobber
+
+      - name: Compose release notes
+        shell: bash
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          DL="https://github.com/$REPO/releases/download/$TAG"
+
+          # Commits since the previous tag (or the whole history for the first release).
+          PREV="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo '')"
+          if [ -n "$PREV" ]; then RANGE="$PREV..$TAG"; else RANGE="$TAG"; fi
+
+          {
+            echo "**Ghosts in the Machine $TAG** — a haunted IT management sim. Run a paranormal IT"
+            echo "support company: build rooms, hire staff of questionable qualification, and route an"
+            echo "endless queue of absurd tickets while juggling money, client trust, technical debt"
+            echo "and the coffee supply."
+            echo
+            echo "▶ **Play in your browser:** https://janvanwassenhove.github.io/ghostsinthemachine/"
+            echo
+            echo "## Download"
+            echo
+            echo "| Platform | Installer |"
+            echo "| --- | --- |"
+            echo "| Windows (x64) | [\`GhostsInTheMachine-$VERSION-win-x64.exe\`]($DL/GhostsInTheMachine-$VERSION-win-x64.exe) |"
+            echo "| macOS (Apple Silicon) | [\`GhostsInTheMachine-$VERSION-mac-arm64.dmg\`]($DL/GhostsInTheMachine-$VERSION-mac-arm64.dmg) |"
+            echo "| macOS (Intel) | [\`GhostsInTheMachine-$VERSION-mac-x64.dmg\`]($DL/GhostsInTheMachine-$VERSION-mac-x64.dmg) |"
+            echo
+            echo "The Windows build **updates itself**: if an older version is installed it downloads the"
+            echo "new one in the background and applies it on quit."
+            echo
+            echo "> **macOS is unsigned.** On first launch, right-click the app → *Open* to get past"
+            echo "> Gatekeeper. macOS auto-update is disabled until the app is signed and notarized."
+            echo
+            echo "## Screenshots"
+            echo
+            echo "| Main menu | Campaign |"
+            echo "| --- | --- |"
+            echo "| ![Main menu]($DL/01-main-menu.png) | ![Campaign]($DL/02-campaign.png) |"
+            echo
+            echo "![Gameplay]($DL/03-gameplay.png)"
+            echo
+            echo "## What's changed"
+            echo
+            git log --no-merges --pretty=format:'- %s' "$RANGE" || echo "- Initial release"
+            echo
+            echo
+            if [ -n "$PREV" ]; then
+              echo "**Full changelog:** https://github.com/$REPO/compare/$PREV...$TAG"
+            fi
+          } > notes.md
+
+          echo "--- notes.md ---"; cat notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${{ needs.verify.outputs.tag }}" \
+            --title "Ghosts in the Machine ${{ needs.verify.outputs.tag }}" \
+            --notes-file notes.md \
+            --draft=false \
+            --latest

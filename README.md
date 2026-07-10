@@ -36,6 +36,58 @@ npm run build   # type-check + production build to dist/
 npm run preview # serve the production build locally
 ```
 
+Building only the web app? Skip Electron's ~100 MB binary download:
+
+```bash
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install
+```
+
+## Desktop app (Windows / macOS)
+
+Grab an installer from the [latest release](https://github.com/janvanwassenhove/ghostsinthemachine/releases/latest). The desktop build is the *same* static bundle the browser plays, wrapped in an Electron shell — same saves, same game, no backend.
+
+| Platform | Installer | Auto-update |
+| --- | --- | --- |
+| Windows (x64) | `GhostsInTheMachine-<version>-win-x64.exe` | ✅ Yes |
+| macOS (Apple Silicon / Intel) | `GhostsInTheMachine-<version>-mac-<arch>.dmg` | ❌ Not yet — see below |
+
+**Auto-update.** On Windows, the app checks the GitHub Releases feed at launch. If an older version is installed it downloads the new one in the background and applies it on quit — no reinstall.
+
+**macOS is unsigned.** On first launch, right-click the app → *Open* to get past Gatekeeper. Squirrel.Mac refuses to apply an update it cannot verify, so macOS auto-update stays disabled until the app is signed and notarized. No code change is needed to switch it on — just add the Apple secrets below and cut a release.
+
+### Building installers locally
+
+```bash
+npm run dist:win   # -> release/GhostsInTheMachine-<version>-win-x64.exe
+npm run dist:mac   # -> release/GhostsInTheMachine-<version>-mac-<arch>.dmg
+npm run electron   # build, then run the desktop shell without packaging
+npm run make-icon  # regenerate build/icon.png (the .ico/.icns source)
+```
+
+### Code-signing secrets (optional)
+
+Set these as repository secrets; the release workflow picks them up automatically and builds unsigned if they are absent.
+
+| Secret | Effect |
+| --- | --- |
+| `WINDOWS_CERT_BASE64` | Base64 of a `.pfx` code-signing certificate — removes the SmartScreen warning. |
+| `WINDOWS_CERT_PASSWORD` | Password for that `.pfx`. |
+
+To enable **macOS** signing + notarization (and therefore mac auto-update), add `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`, then drop `CSC_IDENTITY_AUTO_DISCOVERY: false` from [`release.yml`](.github/workflows/release.yml).
+
+## Cutting a release
+
+The tag must match `package.json` — electron-updater derives its update feed from the version, so a mismatch silently breaks auto-update. The workflow enforces this and fails fast.
+
+```bash
+npm version minor      # bumps package.json and creates the matching v* tag
+git push --follow-tags
+```
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then runs the tests, captures fresh gameplay screenshots with Playwright, builds the Windows and macOS installers, and publishes a GitHub Release containing the installers, the screenshots, a description, and a **What's changed** list generated from the commits since the previous tag.
+
+Releases are tag-driven and Pages is `main`-driven, so **the two never interfere**: cutting a release does not redeploy the site, and pushing to `main` does not cut a release.
+
 ## How to play
 
 1. **Build a Ticket Triage Desk** (Build tab → *Core*) — every incident checks in there first. Drag it out on the lit building floor; the ghosts queue on the walkway outside.

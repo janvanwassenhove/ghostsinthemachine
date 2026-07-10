@@ -1,0 +1,50 @@
+appId: com.mityjohn.ghostsinthemachine
+productName: Ghosts in the Machine
+copyright: © Jan Van Wassenhove
+
+directories:
+  output: release
+  buildResources: build
+
+# The renderer is the built static site; `electron/` is the shell. Phaser lives
+# in devDependencies because Vite bundles it into dist/ — it must not be shipped
+# again inside the asar.
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+# electron-updater reads latest.yml / latest-mac.yml from the GitHub Release.
+publish:
+  provider: github
+  owner: janvanwassenhove
+  repo: ghostsinthemachine
+  releaseType: draft
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: GhostsInTheMachine-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Ghosts in the Machine
+
+mac:
+  category: public.app-category.games
+  # Unsigned builds: see README. Setting an Apple identity here (or via CSC_LINK)
+  # is all that is needed to make macOS auto-update work.
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip # required by electron-updater for macOS updates
+      arch: [x64, arm64]
+  artifactName: GhostsInTheMachine-${version}-mac-${arch}.${ext}
+
+dmg:
+  artifactName: GhostsInTheMachine-${version}-mac-${arch}.${ext}

@@ -3,17 +3,34 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "description": "A haunted IT management sim for the browser. TypeScript + Vite + Phaser, static-only, deployable to GitHub Pages.",
+  "author": "Jan Van Wassenhove <vanwassenhove.jan@gmail.com>",
+  "homepage": "https://janvanwassenhove.github.io/ghostsinthemachine/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/janvanwassenhove/ghostsinthemachine.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "screenshots": "node scripts/screenshots.mjs",
+    "make-icon": "node scripts/make-icon.mjs",
+    "electron": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never"
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "electron-updater": "6.8.9"
   },
   "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
+    "phaser": "^3.90.0",
+    "playwright": "^1.61.1",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
     "vitest": "^3.2.0"
