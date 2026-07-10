@@ -122,16 +122,25 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      # Windows-only, and only when a cert is actually configured. CSC_LINK must
+      # never be set to an empty string: electron-builder would treat "" as a
+      # cert *file path*, resolve it to the project root and die with
+      # "<projectDir> not a file" — which is exactly what broke the mac build.
+      - name: Configure Windows code signing
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.WINDOWS_CERT_BASE64 }}" ]; then
+            echo "CSC_LINK=${{ secrets.WINDOWS_CERT_BASE64 }}" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=${{ secrets.WINDOWS_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+          fi
+
       - name: Package installers
         run: npx electron-builder ${{ matrix.args }} --publish never
         env:
-          # Windows code signing. Unset -> electron-builder builds unsigned and
-          # SmartScreen warns on first run; the installer still works.
-          CSC_LINK: ${{ secrets.WINDOWS_CERT_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
-          # macOS is unsigned: stop electron-builder hunting for a keychain
-          # identity that isn't there. (Signing macOS is what enables mac
-          # auto-update — see README.)
+          # Don't hunt the runner keychain for a Developer ID; with no CSC_LINK
+          # this leaves electron-builder to ad-hoc sign the mac app (which arm64
+          # needs to launch). Signing macOS properly is a separate step (README).
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - uses: actions/upload-artifact@v4
