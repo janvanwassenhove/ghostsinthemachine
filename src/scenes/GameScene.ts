@@ -1631,7 +1631,7 @@ export class GameScene extends Phaser.Scene {
             (room.serving ? ` — serving (${Math.ceil(room.serving.remaining)}s)` : ''), COLORS.textPrimary);
         }
         y += 4;
-        line('Staff here:', COLORS.ghostGreenCss);
+        line(`Staff here (${room.staff.length}/${BAL.maxRoomStaff}):`, COLORS.ghostGreenCss);
         if (room.staff.length === 0) line('— none —', COLORS.textDim, '12px');
         for (const sid of room.staff) {
           const st = this.sim.staffById(sid);
@@ -1641,13 +1641,16 @@ export class GameScene extends Phaser.Scene {
             { w: W - 20, h: 24, fontSize: '12px' }));
           y += 27;
         }
+        const freeSlots = BAL.maxRoomStaff - room.staff.length;
         const assignable = this.sim.state.staff.filter(
           (s) => s.room !== room.id &&
             (def.roles.length === 0 || def.roles.includes(s.role)),
         );
-        if (assignable.length > 0) {
+        if (freeSlots <= 0) {
+          line(room.staff.length >= 2 ? 'Fully staffed — a second pair of hands works faster.' : 'Fully staffed.', '#8a97a8', '12px');
+        } else if (assignable.length > 0) {
           line('Assign:', COLORS.ghostGreenCss);
-          for (const st of assignable.slice(0, 5)) {
+          for (const st of assignable.slice(0, Math.min(5, freeSlots + 2))) {
             add(button(this, W / 2, y + 12, `+ ${st.name} [${ROLE_BY_ID[st.role].initials}]`,
               () => this.action(this.sim.assign(st.id, room.id)),
               { w: W - 20, h: 24, fontSize: '12px' }));

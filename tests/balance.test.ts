@@ -11,8 +11,9 @@ import type { RoomState } from '../src/sim/state';
 const GRID_W = 24, GRID_H = 15;
 const STAFFED_SPECIALS = ['observatory', 'monitoring_shrine', 'war_room', 'release_ritual', 'backup_lab', 'refactor_dojo'];
 const needsStaff = (defId: string) => ROOM_BY_ID[defId].service || STAFFED_SPECIALS.includes(defId);
-// Rooms a skilled player stacks with several workers (throughput / debt burn).
-const stackTo = (defId: string) => (defId === 'refactor_dojo' ? 3 : defId === 'triage' ? 2 : defId === 'coffee_reactor' ? 2 : 1);
+// Rooms a skilled player stacks with a second worker (throughput / debt burn).
+// Rooms cap at two staff, so this never exceeds 2.
+const stackTo = (defId: string) => (['refactor_dojo', 'triage', 'coffee_reactor'].includes(defId) ? 2 : 1);
 
 /** Rooms a competent player would build for this contract, in priority order:
  *  triage + coffee, then support rooms the *win condition* hinges on (built early),

@@ -360,6 +360,11 @@ export class Sim {
     if (def.roles.length > 0 && !def.roles.includes(s.role)) {
       return `${ROLE_BY_ID[s.role].name} cannot work in ${def.name}`;
     }
+    // Two workers to a room — a second pair of hands speeds work; a third would
+    // just get underfoot.
+    if (!room.staff.includes(staffId) && room.staff.length >= BAL.maxRoomStaff) {
+      return `${def.name} is full (max ${BAL.maxRoomStaff} staff).`;
+    }
     this.unassign(staffId);
     s.room = roomId;
     room.staff.push(staffId);
@@ -720,16 +725,19 @@ export class Sim {
     const def = INCIDENT_BY_ID[inc.def];
     const roomSpeed = 1 + (room.level - 1) * BAL.roomLevelSpeed;
     const staff = this.presentStaff(room);
-    let staffFactor = 0.5;
+    let staffFactor = 0.5; // unstaffed: things limp along
     if (staff.length > 0) {
-      staffFactor =
-        staff.reduce((a, s) => {
+      const factors = staff
+        .map((s) => {
           let f = 0.55 + s.skill * 0.17;
           if (s.energy < 30) f *= 0.7;
           if (s.morale < 40) f *= 0.8;
-          return a + f;
-        }, 0) / staff.length;
-      staffFactor *= 1 + (staff.length - 1) * 0.2; // extra hands help a bit
+          return f;
+        })
+        .sort((a, b) => b - a);
+      // The primary worker sets the pace; a second pair of hands adds a fraction
+      // on top, so a 2nd staffer always speeds the room up, never slows it.
+      staffFactor = factors[0] + (factors[1] ?? 0) * BAL.secondStaffFactor;
     }
     let t = (def.service * (0.7 + inc.severity * 0.25)) / (roomSpeed * staffFactor);
     if (ROOM_BY_ID[room.def].special === 'triage') t *= BAL.triageServiceFactor;

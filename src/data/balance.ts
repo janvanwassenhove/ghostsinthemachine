@@ -22,7 +22,9 @@ export const BAL = {
   moraleResignThreshold: 8,
   moraleResignSeconds: 20, // sustained below threshold
   trainSkillPerDay: 0.6,
-  trainDebtPerStaffPerDay: 9,
+  trainDebtPerStaffPerDay: 13, // per staff; rooms cap at 2, so this is the Dojo's ceiling per pair
+  maxRoomStaff: 2, // a room takes at most two workers
+  secondStaffFactor: 0.6, // a 2nd worker adds this fraction of their output on top of the first
 
   // Coffee
   brewSeconds: 4, // unstaffed seconds per coffee

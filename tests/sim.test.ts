@@ -421,6 +421,38 @@ describe('staff assignment rules', () => {
     const err = sim.assign(staff.id, sim.state.rooms[0].id);
     expect(err).toMatch(/cannot work/);
   });
+
+  it('caps a room at two staff, and a second worker speeds it up', () => {
+    const sim = new Sim(basement, 42);
+    unlockAll(sim);
+    sim.buildRoom('debug_chapel', 7, 5, 3, 3);
+    const room = sim.state.rooms[0];
+    const mk = () => {
+      sim.state.staff.push({
+        id: sim.state.nextId++, name: 'W', role: 'bug_whisperer', skill: 3, salary: 50,
+        energy: 100, morale: 70, quirk: 'test', room: null,
+        x: 1, y: 1, tx: 1, ty: 1, activity: 'idle', breakTimer: 0, lowMoraleTime: 0,
+      });
+      return sim.state.staff[sim.state.staff.length - 1];
+    };
+    const a = mk(), b = mk(), c = mk();
+    const inc = { def: 'recursive_panic', severity: 2 };
+    const serviceTime = (r: unknown, i: unknown) =>
+      (sim as unknown as { serviceTime(i: unknown, r: unknown): number }).serviceTime(i, r);
+
+    expect(sim.assign(a.id, room.id)).toBeNull();
+    a.activity = 'working'; // count as present at the desk
+    const oneStaff = serviceTime(room, inc);
+
+    expect(sim.assign(b.id, room.id)).toBeNull();
+    b.activity = 'working';
+    const twoStaff = serviceTime(room, inc);
+    expect(twoStaff).toBeLessThan(oneStaff); // a second pair of hands is faster
+
+    // A third worker is turned away and the room stays at two.
+    expect(sim.assign(c.id, room.id)).toMatch(/full/i);
+    expect(room.staff.length).toBe(2);
+  });
 });
 
 describe('incident lifecycle', () => {
