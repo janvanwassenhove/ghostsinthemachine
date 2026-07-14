@@ -9,8 +9,28 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3c-6 0-10 5-10 11v13l3-3 3 3 4-3 4 3 3-3 3 3V14c0-6-4-11-10-11z' fill='%237ee8a2'/%3E%3Ccircle cx='12' cy='14' r='2.4' fill='%23101418'/%3E%3Ccircle cx='20' cy='14' r='2.4' fill='%23101418'/%3E%3C/svg%3E"
     />
     <title>Ghosts in the Machine</title>
+    <script>
+      // Reveal the custom title bar only inside the desktop (Electron) shell —
+      // the browser build keeps the whole window for the game. Runs before the
+      // body paints so there is no layout flash.
+      (function () {
+        var ua = navigator.userAgent;
+        if (ua.indexOf('Electron') === -1) return;
+        var root = document.documentElement;
+        root.classList.add('electron');
+        root.classList.add(ua.indexOf('Macintosh') !== -1 ? 'electron-mac' : 'electron-win');
+      })();
+    </script>
   </head>
   <body>
+    <div id="titlebar">
+      <svg id="titlebar-icon" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 3c-6 0-10 5-10 11v13l3-3 3 3 4-3 4 3 3-3 3 3V14c0-6-4-11-10-11z" fill="#7ee8a2" />
+        <circle cx="12" cy="14" r="2.4" fill="#0b0e12" />
+        <circle cx="20" cy="14" r="2.4" fill="#0b0e12" />
+      </svg>
+      <span id="titlebar-title">Ghosts in the Machine</span>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

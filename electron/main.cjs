@@ -4,10 +4,15 @@
 // configured with `base: './'`, so `dist/index.html` loads happily from file://.
 // Nothing game-side knows or cares that it is running inside Electron.
 const path = require('node:path');
-const { app, shell, BrowserWindow } = require('electron');
+const { app, shell, BrowserWindow, Menu, nativeTheme } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 const isPackaged = app.isPackaged;
+const isMac = process.platform === 'darwin';
+
+// Title-bar height must match #titlebar in style.css so the native window
+// controls line up with the game-styled strip beneath them.
+const TITLE_BAR_HEIGHT = 34;
 
 /**
  * Auto-update against the GitHub Releases feed that electron-builder publishes
@@ -37,13 +42,24 @@ function initAutoUpdate() {
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
-    height: 780, // 720 of canvas + a little chrome
+    height: 780, // 720 of canvas + the title strip + a little slack
     minWidth: 960,
     minHeight: 600,
     backgroundColor: '#0b0e12',
     title: 'Ghosts in the Machine',
-    autoHideMenuBar: true,
     show: false,
+    // Hide the OS title bar and draw our own strip; keep native window controls
+    // but theme them to the game. macOS keeps its (inset) traffic lights.
+    ...(isMac
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 10 } }
+      : {
+          titleBarStyle: 'hidden',
+          titleBarOverlay: {
+            color: '#0b0e12', // caption-button strip background
+            symbolColor: '#7ee8a2', // the min/max/close glyphs
+            height: TITLE_BAR_HEIGHT,
+          },
+        }),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -77,6 +93,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    // A game needs no application menu; dropping it also removes the Alt-key
+    // menu flash on Windows. Force dark so any native chrome matches the game.
+    Menu.setApplicationMenu(null);
+    nativeTheme.themeSource = 'dark';
     createWindow();
     initAutoUpdate();
     app.on('activate', () => {
