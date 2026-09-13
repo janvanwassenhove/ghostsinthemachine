@@ -86,11 +86,13 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
       - run: npx playwright install --with-deps chromium
       - run: npm run screenshots
+      # A hand-off to the publish job in the same run; the screenshots end up in the notes.
       - uses: actions/upload-artifact@v4
         with:
           name: screenshots
           path: screenshots/
           if-no-files-found: error
+          retention-days: 1
 
   # ------------------------------------------------------------- installers
   # Each runner only BUILDS (electron-builder --publish never) and uploads its
@@ -143,6 +145,8 @@ jobs:
           # needs to launch). Signing macOS properly is a separate step (README).
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      # A hand-off to the publish job in the same run: what lasts is the copy attached to the
+      # release. Actions storage is one pool for the whole account, so these do not linger.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -153,6 +157,7 @@ jobs:
             release/*.blockmap
             release/latest*.yml
           if-no-files-found: error
+          retention-days: 1
 
   # ------------------------------------------------------------ release notes
   publish:
